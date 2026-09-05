@@ -238,7 +238,9 @@ mostrar_histograma(G, "Hoja seca pequeña - Canal G")
 
 
 
-#                   Actualizar github
-#git add .
+#------------------ Actualizar github ------------------
+
+#git status
+#git add miniporyecto1.py
 #git commit -m "Añadir nueva funcion"
 #git push origin main
