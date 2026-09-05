@@ -241,4 +241,4 @@ mostrar_histograma(G, "Hoja seca pequeña - Canal G")
 #                   Actualizar github
 #git add .
 #git commit -m "Añadir nueva funcion"
-#git push origin maingit status
+#git push origin main
