@@ -2,9 +2,6 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PIL import Image
-from skimage import io
-
 import glob #Añadido para poder leer todas las imágenes de la carpeta
 
 def histograma(img):
@@ -43,6 +40,60 @@ def mostrar_histograma(img, titulo="", normalizado=False):
     plt.tight_layout()
     plt.show()
 
+def procesar_muestra(nombre_archivo, titulo):
+
+    imagen = cv.imread(nombre_archivo)
+
+    if imagen is None:
+        raise FileNotFoundError(
+            f"No se pudo leer la imagen: {nombre_archivo}"
+        )
+
+    imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
+
+    roi = imagen_RGB[0:2296, 646:2820]
+
+    R = roi[:, :, 0]
+    G = roi[:, :, 1]
+
+    hist_R = histograma(R)
+    hist_G = histograma(G)
+
+    k = np.arange(256)
+
+    fig, ax = plt.subplots(2, 2, figsize=(12, 8))
+
+    # ---------------- Canal R ----------------
+
+    ax[0, 0].imshow(R, cmap="gray", vmin=0, vmax=255)
+    ax[0, 0].set_title("Canal R")
+    ax[0, 0].axis("off")
+
+    ax[0, 1].plot(k, hist_R)
+    ax[0, 1].set_xlim(0, 255)
+    ax[0, 1].set_xlabel("Intensidad k")
+    ax[0, 1].set_ylabel("h[k]")
+    ax[0, 1].set_title("Histograma R")
+    ax[0, 1].grid(alpha=0.2)
+
+    # ---------------- Canal G ----------------
+
+    ax[1, 0].imshow(G, cmap="gray", vmin=0, vmax=255)
+    ax[1, 0].set_title("Canal G")
+    ax[1, 0].axis("off")
+
+    ax[1, 1].plot(k, hist_G)
+    ax[1, 1].set_xlim(0, 255)
+    ax[1, 1].set_xlabel("Intensidad k")
+    ax[1, 1].set_ylabel("h[k]")
+    ax[1, 1].set_title("Histograma G")
+    ax[1, 1].grid(alpha=0.2)
+
+    fig.suptitle(titulo, fontsize=14)
+
+    plt.tight_layout()
+    plt.show()
+
 
 #----------------------------------1.2.1-----------------------------------------
 # Carguen, visualicen y recorten una región de interés cuando corresponda. En imágenes RGB,
@@ -61,7 +112,6 @@ imagenes = sorted(glob.glob("IMG_20260901_*.jpg"))
 imagenes_RGB = []
 imagenes_BGR = []
 
-
 #Lee todas las imagenes en orden de la carpeta y las convierte en RGB. Muestra la original y luego en RGB
 for i in imagenes:
     imagen = cv.imread(i)
@@ -78,43 +128,49 @@ for i in imagenes:
         imagenes_RGB.append(roi_RGB)
         imagenes_BGR.append(roi_BGR)
 
-for i in imagenes_RGB:
 
-    gris = cv.cvtColor(i, cv.COLOR_RGB2GRAY)
+#---------------------------------- Plot cada 3 fotos ----------------------------------
+mostrar_canales = False #Cambiar a True para mostrar los plt. Dejar en False para no mostrar
 
-    R = i[:, :, 0]
-    G = i[:, :, 1]
-    B = i[:, :, 2]
+if mostrar_canales:
+    for i in range(0, len(imagenes_RGB), 3):
 
-    #plt.figure(figsize=(18, 5))
+        grupo = imagenes_RGB[i:i+3]
 
-    #plt.subplot(1, 5, 1)
-    #plt.imshow(i)
-    #plt.title("Original RGB")
-    #plt.axis("off")
+        fig, ax = plt.subplots(3, 5, figsize=(16, 10))
 
-    #plt.subplot(1, 5, 2)
-    #plt.imshow(gris, cmap="gray", vmin=0, vmax=255)
-    #plt.title("Escala de grises")
-    #plt.axis("off")
+        for fila, i in enumerate(grupo):
 
-    #plt.subplot(1, 5, 3)
-    #plt.imshow(R, cmap="gray", vmin=0, vmax=255)
-    #plt.title("Canal R (rojo)")
-    #plt.axis("off")
+            gris = cv.cvtColor(i, cv.COLOR_RGB2GRAY)
 
-    #plt.subplot(1, 5, 4)
-    #plt.imshow(G, cmap="gray", vmin=0, vmax=255)
-    #plt.title("Canal G (verde)")
-    #plt.axis("off")
+            R = i[:, :, 0]
+            G = i[:, :, 1]
+            B = i[:, :, 2]
 
-    #plt.subplot(1, 5, 5)
-    #plt.imshow(B, cmap="gray", vmin=0, vmax=255)
-    #plt.title("Canal B (azul)")
-    #plt.axis("off")
+            ax[fila, 0].imshow(i)
+            ax[fila, 0].axis("off")
 
-    #plt.tight_layout() #Ajusta el tamaño de forma automatica
-    #plt.show()
+            ax[fila, 1].imshow(gris, cmap="gray", vmin=0, vmax=255)
+            ax[fila, 1].axis("off")
+
+            ax[fila, 2].imshow(R, cmap="gray", vmin=0, vmax=255)
+            ax[fila, 2].axis("off")
+
+            ax[fila, 3].imshow(G, cmap="gray", vmin=0, vmax=255)
+            ax[fila, 3].axis("off")
+
+            ax[fila, 4].imshow(B, cmap="gray", vmin=0, vmax=255)
+            ax[fila, 4].axis("off")
+
+            if fila == 0:
+                ax[fila, 0].set_title("Original RGB")
+                ax[fila, 1].set_title("Escala de grises")
+                ax[fila, 2].set_title("Canal R")
+                ax[fila, 3].set_title("Canal G")
+                ax[fila, 4].set_title("Canal B")
+
+        plt.tight_layout() #Ajusta el tamaño de forma automatica
+        plt.show()
 
 #-------------------Definir que realizar, en este caso se resaltaraán las nervaduras (Venas)---------------------
 # Canales útiles: R y G (De forma visual)
@@ -124,113 +180,28 @@ for i in imagenes_RGB:
 # el contraste y la visibilidad de la característica de interés.
 
 
-#---------------------------------- Hoja normal grande ----------------------------------
+muestras = [
+    ("IMG_20260901_161412945.jpg", "Hoja normal grande 1"),
+    ("IMG_20260901_161426657.jpg", "Hoja normal grande 2"),
 
-hoja_normal_grande = cv.imread("IMG_20260901_161426657.jpg")
+    ("IMG_20260901_161504068.jpg", "Hoja mojada grande 1"),
+    ("IMG_20260901_161539928.jpg", "Hoja mojada grande 2"),
 
-if hoja_normal_grande is None:
-    raise FileNotFoundError("No se pudo leer la imagen")
+    ("IMG_20260901_161616155.jpg", "Hoja seca grande 1"),
+    ("IMG_20260901_161635904.jpg", "Hoja seca grande 2"),
 
-hoja_normal_grande_RGB = cv.cvtColor(hoja_normal_grande, cv.COLOR_BGR2RGB)
+    ("IMG_20260901_161710879.jpg", "Hoja normal pequeña 1"),
+    ("IMG_20260901_161741846.jpg", "Hoja normal pequeña 2"),
 
-roi_hoja_normal_grande = hoja_normal_grande_RGB[0:2296, 646:2820]
+    ("IMG_20260901_161811458.jpg", "Hoja mojada pequeña 1"),
+    ("IMG_20260901_161851864.jpg", "Hoja mojada pequeña 2"),
 
-R = roi_hoja_normal_grande[:, :, 0]
-G = roi_hoja_normal_grande[:, :, 1]
+    ("IMG_20260901_161918685.jpg", "Hoja seca pequeña 1"),
+    ("IMG_20260901_161940183.jpg", "Hoja seca pequeña 2")
+]
 
-mostrar_histograma(R, "Hoja normal grande - Canal R")
-mostrar_histograma(G, "Hoja normal grande - Canal G")
-
-
-#----------------------------------Hoja mojada grande ----------------------------------
-
-hoja_mojada_grande = cv.imread("PONER_ARCHIVO_HOJA_MOJADA_GRANDE.jpg")
-
-if hoja_mojada_grande is None:
-    raise FileNotFoundError("No se pudo leer la imagen")
-
-hoja_mojada_grande_RGB = cv.cvtColor(hoja_mojada_grande, cv.COLOR_BGR2RGB)
-
-roi_hoja_mojada_grande = hoja_mojada_grande_RGB[0:2296, 646:2820]
-
-R = roi_hoja_mojada_grande[:, :, 0]
-G = roi_hoja_mojada_grande[:, :, 1]
-
-mostrar_histograma(R, "Hoja mojada grande - Canal R")
-mostrar_histograma(G, "Hoja mojada grande - Canal G")
-
-
-#---------------------------------- Hoja seca grande ----------------------------------
-
-hoja_seca_grande = cv.imread("PONER_ARCHIVO_HOJA_SECA_GRANDE.jpg")
-
-if hoja_seca_grande is None:
-    raise FileNotFoundError("No se pudo leer la imagen")
-
-hoja_seca_grande_RGB = cv.cvtColor(hoja_seca_grande, cv.COLOR_BGR2RGB)
-
-roi_hoja_seca_grande = hoja_seca_grande_RGB[0:2296, 646:2820]
-
-R = roi_hoja_seca_grande[:, :, 0]
-G = roi_hoja_seca_grande[:, :, 1]
-
-mostrar_histograma(R, "Hoja seca grande - Canal R")
-mostrar_histograma(G, "Hoja seca grande - Canal G")
-
-
-#---------------------------------- Hoja normal pequeña ----------------------------------
-
-hoja_normal_pequena = cv.imread("PONER_ARCHIVO_HOJA_NORMAL_PEQUENA.jpg")
-
-if hoja_normal_pequena is None:
-    raise FileNotFoundError("No se pudo leer la imagen")
-
-hoja_normal_pequena_RGB = cv.cvtColor(hoja_normal_pequena, cv.COLOR_BGR2RGB)
-
-roi_hoja_normal_pequena = hoja_normal_pequena_RGB[0:2296, 646:2820]
-
-R = roi_hoja_normal_pequena[:, :, 0]
-G = roi_hoja_normal_pequena[:, :, 1]
-
-mostrar_histograma(R, "Hoja normal pequeña - Canal R")
-mostrar_histograma(G, "Hoja normal pequeña - Canal G")
-
-
-#---------------------------------- Hoja mojada pequeña ----------------------------------
-
-hoja_mojada_pequena = cv.imread("PONER_ARCHIVO_HOJA_MOJADA_PEQUENA.jpg")
-
-if hoja_mojada_pequena is None:
-    raise FileNotFoundError("No se pudo leer la imagen")
-
-hoja_mojada_pequena_RGB = cv.cvtColor(hoja_mojada_pequena, cv.COLOR_BGR2RGB)
-
-roi_hoja_mojada_pequena = hoja_mojada_pequena_RGB[0:2296, 646:2820]
-
-R = roi_hoja_mojada_pequena[:, :, 0]
-G = roi_hoja_mojada_pequena[:, :, 1]
-
-mostrar_histograma(R, "Hoja mojada pequeña - Canal R")
-mostrar_histograma(G, "Hoja mojada pequeña - Canal G")
-
-
-#---------------------------------- Hoja seca pequeña ----------------------------------
-
-hoja_seca_pequena = cv.imread("PONER_ARCHIVO_HOJA_SECA_PEQUENA.jpg")
-
-if hoja_seca_pequena is None:
-    raise FileNotFoundError("No se pudo leer la imagen")
-
-hoja_seca_pequena_RGB = cv.cvtColor(hoja_seca_pequena, cv.COLOR_BGR2RGB)
-
-roi_hoja_seca_pequena = hoja_seca_pequena_RGB[0:2296, 646:2820]
-
-R = roi_hoja_seca_pequena[:, :, 0]
-G = roi_hoja_seca_pequena[:, :, 1]
-
-mostrar_histograma(R, "Hoja seca pequeña - Canal R")
-mostrar_histograma(G, "Hoja seca pequeña - Canal G")
-
+for archivo, titulo in muestras:
+    procesar_muestra(archivo, titulo)
 
 
 
