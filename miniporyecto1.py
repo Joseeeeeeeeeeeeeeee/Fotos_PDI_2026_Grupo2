@@ -8,14 +8,16 @@ from skimage import io
 import glob #Añadido para poder leer todas las imágenes de la carpeta
 
 #print("Dimensiones (fila, columnas, canales):", imagenes_rgb[0].shape) # fila: 2296, columnas: 4080, canales: 3
-#Hay que cortar jsuto en el marco negro de las fotos. Pasar a 2164 x 2296 (Recorte originl)
+#Hay que cortar jsuto en el marco negro de las fotos. Pasar a 2174 x 2296 (Recorte originl)
 
 #Original:           #Recorte:
-#ancho  = 4080       #ancho  = 2164
+#ancho  = 4080       #ancho  = 2174
 #alto   = 2296       #alto   = 2296
 
 imagenes = sorted(glob.glob("IMG_20260901_*.jpg"))
-imagenes_rgb = []
+
+imagenes_RGB = []
+imagenes_BGR = []
 
 #Lee todas las imagenes en orden de la carpeta y las convierte en RGB. Muestra la original y luego en RGB
 for i in imagenes:
@@ -25,11 +27,15 @@ for i in imagenes:
         print(f'Error al cargar la imagen {i}')
 
     else:
-        imagen_rgb = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
-        roi = imagen_rgb[0:2296, 958:3122] #Recorte de la imagen para eliminar el marco negro
-        imagenes_rgb.append(roi)
+        imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
 
-for i in imagenes_rgb:
+        roi_RGB = imagen_RGB[0:2296, 646:2820] #Recorte de la imagen para eliminar el marco negro
+        roi_BGR = imagen[0:2296, 646:2820]
+
+        imagenes_RGB.append(roi_RGB)
+        imagenes_BGR.append(roi_BGR)
+
+for i in imagenes_RGB:
     plt.imshow(i)
     plt.axis("off")
     plt.show()
@@ -45,20 +51,21 @@ for i in imagenes_rgb:
     plt.axis("off")
     plt.show()
 
-    plt.imshow(R, cmap="gray")
+    plt.imshow(R, cmap="gray", vmin=0, vmax=255)
     plt.title("Canal R")
     plt.axis("off")
     plt.show()
 
-    plt.imshow(G, cmap="gray")
+    plt.imshow(G, cmap="gray", vmin=0, vmax=255)
     plt.title("Canal G")
     plt.axis("off")
     plt.show()
 
-    plt.imshow(B, cmap="gray")
+    plt.imshow(B, cmap="gray", vmin=0, vmax=255)
     plt.title("Canal B")
     plt.axis("off")
     plt.show()
+
 
 #                   Actualizar github
 #git add .
