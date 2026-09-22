@@ -9,10 +9,12 @@ def histograma(img):
     return cv.calcHist([img], [0], None, [256], [0, 256]).ravel()
 
 
+
 def histograma_normalizado(img):
     """Histograma dividido por el número total de píxeles."""
     h = histograma(img)
     return h / h.sum()
+
 
 
 def mostrar_histograma(img, titulo="", normalizado=False):
@@ -40,7 +42,9 @@ def mostrar_histograma(img, titulo="", normalizado=False):
     plt.tight_layout()
     plt.show()
 
-def procesar_muestra(nombre_archivo, titulo):
+
+
+def procesar_muestra(nombre_archivo, titulo, ancho, alto):
 
     imagen = cv.imread(nombre_archivo)
 
@@ -51,7 +55,15 @@ def procesar_muestra(nombre_archivo, titulo):
 
     imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
 
-    roi = imagen_RGB[0:2296, 646:2820]
+    roi_base = imagen_RGB[0:2296, 646:2820]
+
+    ancho_base = 2174
+    alto_base = 2296
+
+    x_inicio = (ancho_base - ancho) // 2
+    y_inicio = (alto_base - alto) // 2
+
+    roi = roi_base[y_inicio:y_inicio + alto, x_inicio:x_inicio + ancho]
 
     R = roi[:, :, 0]
     G = roi[:, :, 1]
@@ -95,10 +107,18 @@ def procesar_muestra(nombre_archivo, titulo):
     plt.show()
 
 
-#----------------------------------1.2.1-----------------------------------------
+
+
+
+
+
+
+
+#------------------------------------------------------------------------------------------
+#----------------------------------1.2.1---------------------------------------------------
 # Carguen, visualicen y recorten una región de interés cuando corresponda. En imágenes RGB,
 # comparen la escala de grises y los canales de color que resulten útiles para el problema.
-
+#------------------------------------------------------------------------------------------
 
 #print("Dimensiones (fila, columnas, canales):", imagenes_rgb[0].shape) # fila: 2296, columnas: 4080, canales: 3
 #Hay que cortar jsuto en el marco negro de las fotos. Pasar a 2174 x 2296 (Recorte originl)
@@ -172,13 +192,14 @@ if mostrar_canales:
         plt.tight_layout() #Ajusta el tamaño de forma automatica
         plt.show()
 
-#-------------------Definir que realizar, en este caso se resaltaraán las nervaduras (Venas)---------------------
-# Canales útiles: R y G (De forma visual)
-
-#---------------------------------- 1.2.2 ----------------------------------
+#---------------------------------------------------------------------------------------------
+#---------------------------------- 1.2.2 ----------------------------------------------------
 # Obtengan histogramas de imágenes representativas de cada condición y relacionen su forma con
 # el contraste y la visibilidad de la característica de interés.
+#---------------------------------------------------------------------------------------------
 
+ancho = [1861, 1954, 2108, 1288, 1860, 2033, 800, 825, 1372, 1383, 1079, 1285]
+alto = [1867, 1452, 1663, 2052, 1150, 1028, 1349, 1256, 591, 744, 950, 669]
 
 muestras = [
     ("IMG_20260901_161412945.jpg", "Hoja normal grande 1"),
@@ -200,8 +221,8 @@ muestras = [
     ("IMG_20260901_161940183.jpg", "Hoja seca pequeña 2")
 ]
 
-for archivo, titulo in muestras:
-    procesar_muestra(archivo, titulo)
+for i, (archivo, titulo) in enumerate(muestras):
+    procesar_muestra(archivo, titulo, ancho[i], alto[i])
 
 
 
