@@ -44,7 +44,7 @@ def mostrar_histograma(img, titulo="", normalizado=False):
 
 
 
-def procesar_muestra(nombre_archivo, titulo, ancho, alto):
+def procesar_muestra(nombre_archivo, titulo, ancho, alto, x_0, y_0):
 
     imagen = cv.imread(nombre_archivo)
 
@@ -55,15 +55,11 @@ def procesar_muestra(nombre_archivo, titulo, ancho, alto):
 
     imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
 
-    roi_base = imagen_RGB[0:2296, 646:2820]
+    #roi_base = imagen_RGB[0:2296, 646:2820]
 
-    ancho_base = 2174
-    alto_base = 2296
-
-    x_inicio = (ancho_base - ancho) // 2
-    y_inicio = (alto_base - alto) // 2
-
-    roi = roi_base[y_inicio:y_inicio + alto, x_inicio:x_inicio + ancho]
+    x1 = x_0 + ancho
+    y1 = y_0 + alto
+    roi = imagen_RGB[y_0:y1, x_0:x1]
 
     R = roi[:, :, 0]
     G = roi[:, :, 1]
@@ -198,8 +194,11 @@ if mostrar_canales:
 # el contraste y la visibilidad de la característica de interés.
 #---------------------------------------------------------------------------------------------
 
-ancho = [1861, 1954, 2108, 1288, 1860, 2033, 800, 825, 1372, 1383, 1079, 1285]
-alto = [1867, 1452, 1663, 2052, 1150, 1028, 1349, 1256, 591, 744, 950, 669]
+ancho = [1861, 1954, 2108, 1286, 1860, 1984, 797, 824, 1370, 1383, 1036, 1240]  # w
+alto = [1867, 1452, 1652, 2052, 1164, 988, 1343, 1240, 591, 744, 950, 673]     # l 5 - 1150
+
+x_0 = [720, 646, 788, 995, 936, 843, 1230, 1358, 924, 1380, 1036, 1131]
+y_0 = [276, 285, 239, 0, 385, 582, 198, 158, 598, 270, 460, 709]
 
 muestras = [
     ("IMG_20260901_161412945.jpg", "Hoja normal grande 1"),
@@ -215,14 +214,14 @@ muestras = [
     ("IMG_20260901_161741846.jpg", "Hoja normal pequeña 2"),
 
     ("IMG_20260901_161811458.jpg", "Hoja mojada pequeña 1"),
-    ("IMG_20260901_161851864.jpg", "Hoja mojada pequeña 2"),
+    ("IMG_20260901_161851864.jpg", "Hoja mojada pequeña 2"), 
 
     ("IMG_20260901_161918685.jpg", "Hoja seca pequeña 1"),
     ("IMG_20260901_161940183.jpg", "Hoja seca pequeña 2")
 ]
 
 for i, (archivo, titulo) in enumerate(muestras):
-    procesar_muestra(archivo, titulo, ancho[i], alto[i])
+    procesar_muestra(archivo, titulo, ancho[i], alto[i], x_0[i], y_0[i])
 
 
 
