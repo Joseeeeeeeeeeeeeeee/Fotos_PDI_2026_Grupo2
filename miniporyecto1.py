@@ -1,8 +1,135 @@
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
-
 import glob #Añadido para poder leer todas las imágenes de la carpeta
+from skimage.filters import threshold_multiotsu
+
+#----------------------------------------------------
+#----------------- Segmentaciones  ------------------
+#----------------------------------------------------
+def segmentar(imagenes,T,K,T0,tol,max_iter):
+    for i in range(0,len(imagenes)):
+        image=cv.imread(imagenes[i])
+        #elegir_umbral(image,T,i)
+        #umbral_iterativo(image,T0,tol,max_iter,i)
+        #otsu(image,i)
+        #regiones(image,i)
+        #multi_otsu(image,i)
+        #k_means(image,K,i)
+    return print('FIN')
+
+
+def elegir_umbral(image,T,i): 
+    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+
+    _, masc=cv.threshold(gray,T,255,cv.THRESH_BINARY)
+
+    cv.namedWindow(f'Imagen segmentada Numero {i+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Imagen segmentada Numero {i+1}',masc)
+    cv.resizeWindow(f'Imagen segmentada Numero {i+1}',800,600)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+    return None
+
+def umbral_iterativo(image,T0,tol,max_iter,i):
+    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+    gris=gray.astype(np.float32)
+    T=float(gray.mean() if T0 is None else T0)
+
+    for _ in range(max_iter):
+        c0=gris[gris<=T]
+        c1=gris[gris>T]
+
+        if len(c0)==0 or len(c1)==0:
+            break
+
+        mu0=c0.mean()
+        mu1=c1.mean()
+        T_nuevo=(mu0+mu1)/2
+
+        if abs(T_nuevo - T) < tol:
+            T=T_nuevo
+            break
+
+        T=T_nuevo
+
+    mask=np.where(gris>T,255,0).astype(np.uint8)
+    
+    #print(f'T final={T:.2f}')
+    cv.namedWindow(f'Segmentacion de Umbral iterativo Numero {i+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Segmentacion de Umbral iterativo Numero {i+1}',mask)
+    cv.resizeWindow(f'Segmentacion de Umbral iterativo Numero {i+1}',800,600)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+    return None
+
+def otsu(image,i):
+    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+
+    T_otsu,mask= cv.threshold(gray,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+    
+    #print("Umbral Otsu",T_otsu)
+
+    cv.namedWindow(f'Segmentacion Otsu Numero {i+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Segmentacion Otsu Numero {i+1}',mask)
+    cv.resizeWindow(f'Segmentacion Otsu Numero {i+1}',800,600)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+    return None
+
+def regiones(image,i):
+    blue=image[:,:,0]
+    umbrales=[41,69,127]
+    clases=np.digitize(blue,umbrales)
+    niveles=np.linspace(0,255,4).astype(np.uint8)
+    resultado=niveles[clases]
+
+    cv.namedWindow(f'Segmentacion en Regiones Numero {i+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Segmentacion en Regiones Numero {i+1}',resultado)
+    cv.resizeWindow(f'Segmentacion en Regiones Numero {i+1}',800,600)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+    return None
+
+def multi_otsu(image,i):
+    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+    
+    umbrales=threshold_multiotsu(gray,classes=4)
+    clases=np.digitize(gray,bins=umbrales)
+    niveles=np.linspace(0,255,4).astype(np.uint8)
+    resultado=niveles[clases]
+
+    cv.namedWindow(f'Segmentacion Multi Otsu Numero {i+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Segmentacion Multi Otsu Numero {i+1}',resultado)
+    cv.resizeWindow(f'Segmentacion Multi Otsu Numero {i+1}',800,600)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+    return None
+
+def k_means(image,K,i):
+    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+    X=gray.reshape((-1,1)).astype(np.float32)
+
+    criterio=(cv.TERM_CRITERIA_EPS+cv.TermCriteria_MAX_ITER,100,0.2)
+    _,labels,centers=cv.kmeans(X,K,None,criterio,10,cv.KMEANS_PP_CENTERS)
+
+    centers=centers.flatten()
+    orden=np.argsort(centers)
+    remap=np.zeros(K,dtype=np.uint8)
+
+    for nuevo, viejo in enumerate(orden):
+        remap[viejo]=nuevo
+    
+    labels_ord=remap[labels.flatten()].reshape(gray.shape)
+    niveles=np.linspace(0,255,K).astype(np.uint8)
+    resultado=niveles[labels_ord]
+
+    cv.namedWindow(f'Segmentacion K-means (K={K}) Numero {i+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'SegmentacionK-means (K={K}) Numero {i+1}',resultado)
+    cv.resizeWindow(f'Segmentacion K-means (K={K}) Numero {i+1}',800,600)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+    return None    
 
 #----------------------------------------------------
 #----------------- Histograma base ------------------
@@ -165,6 +292,8 @@ def comparar_transformaciones(nombre_archivo, titulo, ancho, alto, x_0, y_0, gam
 
         plt.tight_layout()
         plt.show()
+    
+    return print('FIN')
 
 #---------------------------------------------------------------
 #------------------ Procesamiento de muestras ------------------
@@ -329,23 +458,23 @@ y_0 = [276, 285, 239, 0, 385, 582, 198, 158, 598, 270, 460, 709]
 mostrar_histogramas = False #Cambiar a True para mostrar los plt. Dejar en False para no mostrar
 
 muestras = [
-    ("IMG_20260901_161412945.jpg", "Hoja normal grande 1"),
-    ("IMG_20260901_161426657.jpg", "Hoja normal grande 2"),
+    ("IMG_20260901_161412945.jpg", "Hoja normal grande 1"), #1
+    ("IMG_20260901_161426657.jpg", "Hoja normal grande 2"), #2
 
-    ("IMG_20260901_161504068.jpg", "Hoja mojada grande 1"),
-    ("IMG_20260901_161539928.jpg", "Hoja mojada grande 2"),
+    ("IMG_20260901_161504068.jpg", "Hoja mojada grande 1"), #3
+    ("IMG_20260901_161539928.jpg", "Hoja mojada grande 2"), #4
 
-    ("IMG_20260901_161616155.jpg", "Hoja seca grande 1"),
-    ("IMG_20260901_161635904.jpg", "Hoja seca grande 2"),
+    ("IMG_20260901_161616155.jpg", "Hoja seca grande 1"),   #5
+    ("IMG_20260901_161635904.jpg", "Hoja seca grande 2"),   #6
 
-    ("IMG_20260901_161710879.jpg", "Hoja normal pequeña 1"),
-    ("IMG_20260901_161741846.jpg", "Hoja normal pequeña 2"),
+    ("IMG_20260901_161710879.jpg", "Hoja normal pequeña 1"),#7
+    ("IMG_20260901_161741846.jpg", "Hoja normal pequeña 2"),#8
 
-    ("IMG_20260901_161811458.jpg", "Hoja mojada pequeña 1"),
-    ("IMG_20260901_161851864.jpg", "Hoja mojada pequeña 2"), 
+    ("IMG_20260901_161811458.jpg", "Hoja mojada pequeña 1"),#9
+    ("IMG_20260901_161851864.jpg", "Hoja mojada pequeña 2"),#10 
 
-    ("IMG_20260901_161918685.jpg", "Hoja seca pequeña 1"),
-    ("IMG_20260901_161940183.jpg", "Hoja seca pequeña 2")
+    ("IMG_20260901_161918685.jpg", "Hoja seca pequeña 1"),  #11
+    ("IMG_20260901_161940183.jpg", "Hoja seca pequeña 2")   #12
 ]
 if mostrar_histogramas:
     for i, (archivo, titulo) in enumerate(muestras):
@@ -368,3 +497,5 @@ for i, (archivo, titulo) in enumerate(muestras):
 #git add miniporyecto1.py
 #git commit -m "Añadir nueva funcion"
 #git push origin main
+#git fetch origin
+#git reset --hard origin/main
