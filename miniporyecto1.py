@@ -4,37 +4,56 @@ import matplotlib.pyplot as plt
 import glob #Añadido para poder leer todas las imágenes de la carpeta
 from skimage.filters import threshold_multiotsu
 
+def imagenes_CLAHE(nombre_archivo, titulo, ancho, alto, x_0, y_0, gamma=1.5):
+
+    imagen = cv.imread(nombre_archivo)
+
+    if imagen is None:
+        raise FileNotFoundError(f"No se pudo leer la imagen: {nombre_archivo}")
+
+    imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
+
+    # ROI
+    x1 = x_0 + ancho
+    y1 = y_0 + alto
+    roi = imagen_RGB[y_0:y1, x_0:x1]
+
+    # Canales
+    R = roi[:, :, 0]
+
+    # Crear figura con 1 fila y 2 columnas para mostrar únicamente los canales CLAHE
+    imagen_clahe=aplicar_clahe(R)
+
+    return imagen_clahe
+
+
 #----------------------------------------------------
 #----------------- Segmentaciones  ------------------
 #----------------------------------------------------
-def segmentar(imagenes,T,K,T0,tol,max_iter):
-    for i in range(0,len(imagenes)):
-        image=cv.imread(imagenes[i])
-        #elegir_umbral(image,T,i)
-        #umbral_iterativo(image,T0,tol,max_iter,i)
-        #otsu(image,i)
-        #regiones(image,i)
-        #multi_otsu(image,i)
-        #k_means(image,K,i)
-    return print('FIN')
+def segmentacion(image,k):
+    
+    #elegir_umbral(image,T=128,k=k)
+    #umbral_iterativo(image,T0=None,tol=0.5,max_iter=100,k=k)
+    #otsu(image,k=k)
+    #regiones(image,k=k)
+    #multi_otsu(image,k=k)
+    k_means(image,4,k=k)
+    return None
 
 
-def elegir_umbral(image,T,i): 
-    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+def elegir_umbral(image,T,k): 
+    _, masc=cv.threshold(image,T,255,cv.THRESH_BINARY)
 
-    _, masc=cv.threshold(gray,T,255,cv.THRESH_BINARY)
-
-    cv.namedWindow(f'Imagen segmentada Numero {i+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Imagen segmentada Numero {i+1}',masc)
-    cv.resizeWindow(f'Imagen segmentada Numero {i+1}',800,600)
+    cv.namedWindow(f'Umbral T={T} - Imagen {k+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Umbral T={T} - Imagen {k+1}',masc)
+    cv.resizeWindow(f'Umbral T={T} - Imagen {k+1}',800,600)
     cv.waitKey(0)
     cv.destroyAllWindows()
     return None
 
-def umbral_iterativo(image,T0,tol,max_iter,i):
-    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
-    gris=gray.astype(np.float32)
-    T=float(gray.mean() if T0 is None else T0)
+def umbral_iterativo(image,T0,tol,max_iter,k):
+    gris=image.astype(np.float32)
+    T=float(image.mean() if T0 is None else T0)
 
     for _ in range(max_iter):
         c0=gris[gris<=T]
@@ -55,60 +74,54 @@ def umbral_iterativo(image,T0,tol,max_iter,i):
 
     mask=np.where(gris>T,255,0).astype(np.uint8)
     
-    #print(f'T final={T:.2f}')
-    cv.namedWindow(f'Segmentacion de Umbral iterativo Numero {i+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Segmentacion de Umbral iterativo Numero {i+1}',mask)
-    cv.resizeWindow(f'Segmentacion de Umbral iterativo Numero {i+1}',800,600)
+    cv.namedWindow(f'Umbral Iterativo - Imagen {k+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Umbral Iterativo - Imagen {k+1}',mask)
+    cv.resizeWindow(f'Umbral Iterativo - Imagen {k+1}',800,600)
     cv.waitKey(0)
     cv.destroyAllWindows()
     return None
 
-def otsu(image,i):
-    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
-
-    T_otsu,mask= cv.threshold(gray,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+def otsu(image,k):
+    T_otsu,mask= cv.threshold(image,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
     
-    #print("Umbral Otsu",T_otsu)
-
-    cv.namedWindow(f'Segmentacion Otsu Numero {i+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Segmentacion Otsu Numero {i+1}',mask)
-    cv.resizeWindow(f'Segmentacion Otsu Numero {i+1}',800,600)
+    cv.namedWindow(f'Otsu - Imagen {k+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Otsu - Imagen {k+1}',mask)
+    cv.resizeWindow(f'Otsu - Imagen {k+1}',800,600)
     cv.waitKey(0)
     cv.destroyAllWindows()
     return None
 
-def regiones(image,i):
-    blue=image[:,:,0]
+def regiones(image,k):
+    blue=image[:,:]
     umbrales=[41,69,127]
     clases=np.digitize(blue,umbrales)
     niveles=np.linspace(0,255,4).astype(np.uint8)
     resultado=niveles[clases]
 
-    cv.namedWindow(f'Segmentacion en Regiones Numero {i+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Segmentacion en Regiones Numero {i+1}',resultado)
-    cv.resizeWindow(f'Segmentacion en Regiones Numero {i+1}',800,600)
+    cv.namedWindow(f'Regiones - Imagen {k+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Regiones - Imagen {k+1}',resultado)
+    cv.resizeWindow(f'Regiones - Imagen {k+1}',800,600)
     cv.waitKey(0)
     cv.destroyAllWindows()
     return None
 
-def multi_otsu(image,i):
-    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+def multi_otsu(image,k):
     
-    umbrales=threshold_multiotsu(gray,classes=4)
-    clases=np.digitize(gray,bins=umbrales)
+    umbrales=threshold_multiotsu(image,classes=4)
+    clases=np.digitize(image,bins=umbrales)
     niveles=np.linspace(0,255,4).astype(np.uint8)
     resultado=niveles[clases]
 
-    cv.namedWindow(f'Segmentacion Multi Otsu Numero {i+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Segmentacion Multi Otsu Numero {i+1}',resultado)
-    cv.resizeWindow(f'Segmentacion Multi Otsu Numero {i+1}',800,600)
+    cv.namedWindow(f'Multi-Otsu - Imagen {k+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Multi-Otsu - Imagen {k+1}',resultado)
+    cv.resizeWindow(f'Multi-Otsu - Imagen {k+1}',800,600)
     cv.waitKey(0)
     cv.destroyAllWindows()
     return None
 
-def k_means(image,K,i):
-    gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
-    X=gray.reshape((-1,1)).astype(np.float32)
+def k_means(image,K,k):
+    
+    X=image.reshape((-1,1)).astype(np.float32)
 
     criterio=(cv.TERM_CRITERIA_EPS+cv.TermCriteria_MAX_ITER,100,0.2)
     _,labels,centers=cv.kmeans(X,K,None,criterio,10,cv.KMEANS_PP_CENTERS)
@@ -120,13 +133,13 @@ def k_means(image,K,i):
     for nuevo, viejo in enumerate(orden):
         remap[viejo]=nuevo
     
-    labels_ord=remap[labels.flatten()].reshape(gray.shape)
+    labels_ord=remap[labels.flatten()].reshape(image.shape)
     niveles=np.linspace(0,255,K).astype(np.uint8)
     resultado=niveles[labels_ord]
 
-    cv.namedWindow(f'Segmentacion K-means (K={K}) Numero {i+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'SegmentacionK-means (K={K}) Numero {i+1}',resultado)
-    cv.resizeWindow(f'Segmentacion K-means (K={K}) Numero {i+1}',800,600)
+    cv.namedWindow(f'Segmentacion K-means (K={K}) - Imagen {k+1}',cv.WINDOW_NORMAL)
+    cv.imshow(f'Segmentacion K-means (K={K}) - Imagen {k+1}',resultado)
+    cv.resizeWindow(f'Segmentacion K-means (K={K}) - Imagen {k+1}',800,600)
     cv.waitKey(0)
     cv.destroyAllWindows()
     return None    
@@ -199,10 +212,10 @@ def aplicar_gamma(img, gamma=1.5):
 #----------------------------------------------------------------
 #---------------- Comparación de transformaciones ---------------
 #----------------------------------------------------------------
-def comparar_transformaciones(nombre_archivo, titulo, ancho, alto, x_0, y_0, gamma=1.5):
+def comparar_transformaciones(nombre_archivo,titulo, ancho, alto, x_0, y_0, gamma=1.5):
 
     imagen = cv.imread(nombre_archivo)
-
+    
     if imagen is None:
         raise FileNotFoundError(
             f"No se pudo leer la imagen: {nombre_archivo}"
@@ -223,7 +236,7 @@ def comparar_transformaciones(nombre_archivo, titulo, ancho, alto, x_0, y_0, gam
         ("R", R),
         ("G", G)
     ]
-
+    
     for nombre_canal, canal in canales:
 
         # Aplicar transformaciones
@@ -292,8 +305,14 @@ def comparar_transformaciones(nombre_archivo, titulo, ancho, alto, x_0, y_0, gam
 
         plt.tight_layout()
         plt.show()
-    
-    return print('FIN')
+
+        #elegir_umbral(imagen_clahe,nombre_canal,T=128)
+        #umbral_iterativo(imagen_clahe,nombre_canal,T0=None,tol=0.5,max_iter=100)
+        #otsu(imagen_clahe,nombre_canal)
+        #regiones(imagen_clahe,nombre_canal)
+        #multi_otsu(imagen_clahe,nombre_canal)
+        #k_means(imagen_clahe,K=4)
+    return None
 
 #---------------------------------------------------------------
 #------------------ Procesamiento de muestras ------------------
@@ -487,14 +506,34 @@ if mostrar_histogramas:
 #vistas en clases. Muestren la imagen y su histograma antes y después del procesamiento
 #---------------------------------------------------------------------------------------------
 
-for i, (archivo, titulo) in enumerate(muestras):
-    comparar_transformaciones(archivo, titulo, ancho[i], alto[i], x_0[i], y_0[i], gamma=1.5)
+#for i, (archivo, titulo) in enumerate(muestras):
+    #comparar_transformaciones(archivo,titulo, ancho[i], alto[i], x_0[i], y_0[i], gamma=1.5)
+
+
+CLAHEs=[]
+
+for n, (archivo, titulo) in enumerate(muestras):    
+    CLAHEs.append(imagenes_CLAHE(archivo, titulo, ancho[n], alto[n], x_0[n], y_0[n], gamma=1.5))
+
+for k in range(len(CLAHEs)):
+    segmentacion(CLAHEs[k],k)
+
+#Resultados de las segmentaciones: perfeccion(de 0 a 1)
+
+# Segmentaciones e Imagenes:| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+# elegir umbral (T=128):    |0.9| 1 |0.7| 1 |0.2| 0 | 1 |0.2|0.3|  1 | 0  |  0 | p=
+# umbral iterativo:         |0.5| 1 |0.3| 1 |0.2| 0 | 1 | 0 | 0 |0.9 |0.4 |  0 | p=
+# otsu:                     |0.5| 1 |0.4| 1 | 0 | 0 | 1 | 0 | 0 |0.9 |0.3 |  0 | p=
+# regiones:                 |0.4| 1 |0.3| 1 |0.1| 0 | 1 |0.1|0.2| 1  |  0 |  0 | p=
+# multi otsu:               |0.9| 1 |0.5| 1 |0.8| 0 |0.9|0.1| 0 | 1  | 0.4|  0 | p=
+# k-means (K=4):            |   |   |   |   |   |   |   |   |   |    |    |    | p=
+# k-means (K=8):            |   |   |   |   |   |   |   |   |   |    |    |    | p=
 
 
 #------------------ Actualizar github ------------------
 
-#git status
-#git add miniporyecto1.py
+#git status , despues
+#git add miniporyecto1.py 
 #git commit -m "Añadir nueva funcion"
 #git push origin main
 #git fetch origin
