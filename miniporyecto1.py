@@ -3,6 +3,116 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob #Añadido para poder leer todas las imágenes de la carpeta
 from skimage.filters import threshold_multiotsu
+#----------------------------------------------------
+#----------------- Graficos    ------------------
+#----------------------------------------------------
+
+def grafico(CLAHEs, Segmentaciones, Morfologias):
+
+    for c in range(len(CLAHEs)):
+        clahe=CLAHEs[c]
+        segmentada,tipo_s=Segmentaciones[c]
+        morfologico,tipo_m=Morfologias[c]
+
+        fig, axs=plt.subplots(1,3, figsize=(15,5))
+
+        axs[0].imshow(clahe, cmap='gray', vmin=0, vmax=255)
+        axs[0].set_title(f'CLAHE - Imagen {c+1}')
+        axs[0].axis('off')
+
+        axs[1].imshow(segmentada, cmap='gray', vmin=0, vmax=255)
+        axs[1].set_title(f'Segmentacion: {tipo_s}')
+        axs[1].axis('off')
+
+
+        axs[2].imshow(morfologico, cmap='gray', vmin=0, vmax=255)
+        axs[2].set_title(f'Morfologia: {tipo_m}')
+        axs[2].axis('off')
+
+        plt.tight_layout()
+        plt.show()
+
+#----------------------------------------------------
+#----------------- Morfologia      ------------------
+#----------------------------------------------------
+
+def morfologia(Segmentaciones):
+    M=[]
+
+    M.append(apertura(Segmentaciones[0][0],0))
+    M.append(apertura(Segmentaciones[1][0],1))
+    M.append(apertura(Segmentaciones[2][0],2))
+    M.append(apertura(Segmentaciones[3][0],3))
+    M.append(apertura(Segmentaciones[4][0],4))
+    M.append(apertura(Segmentaciones[5][0],5))
+    M.append(apertura(Segmentaciones[6][0],6))
+    M.append(apertura(Segmentaciones[7][0],7))
+    M.append(apertura(Segmentaciones[8][0],8))
+    M.append(apertura(Segmentaciones[9][0],9))
+    M.append(apertura(Segmentaciones[10][0],10))
+    M.append(apertura(Segmentaciones[11][0],11))
+    #dilatacion(mask,B,x)
+    #apertura(mask,B,x)
+    #extraer(mask,B,x)
+    
+    return M
+
+def dilatacion(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    dilatada=cv.dilate(mask,B,iterations=1)
+
+    return (dilatada,"Dilatacion")
+
+def apertura(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    abierta=cv.morphologyEx(mask,cv.MORPH_OPEN,B)
+
+    return (abierta,"Apertura")
+
+def erosionar(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    erosionada=cv.erode(mask,B,iterations=1)
+
+    return (erosionada,"Erosion")
+
+def cierre(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    cerrada=cv.morphologyEx(mask,cv.MORPH_CLOSE,B)
+
+    return (cerrada,"Cierre")
+
+def extraer(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    extraccion=cv.erode(mask,B)
+
+    borde=cv.subtract(mask,extraccion)
+
+    return (borde,"Extraccion")
+
+
+#----------------------------------------------------
+#----------------- Imagenes CLAHE  ------------------
+#----------------------------------------------------
 
 def imagenes_CLAHE(nombre_archivo, titulo, ancho, alto, x_0, y_0, gamma=1.5):
 
@@ -26,30 +136,32 @@ def imagenes_CLAHE(nombre_archivo, titulo, ancho, alto, x_0, y_0, gamma=1.5):
 
     return imagen_clahe
 
-
 #----------------------------------------------------
 #----------------- Segmentaciones  ------------------
 #----------------------------------------------------
-def segmentacion(image,k):
+def segmentar(CLAHEs):
     
-    #elegir_umbral(image,T=128,k=k)
-    #umbral_iterativo(image,T0=None,tol=0.5,max_iter=100,k=k)
-    #otsu(image,k=k)
-    #regiones(image,k=k)
-    #multi_otsu(image,k=k)
-    k_means(image,4,k=k)
-    return None
+    S=[]
 
+    S.append(multi_otsu(CLAHEs[0],k=0))
+    S.append(umbral_iterativo(CLAHEs[1],T0=None,tol=0.5,max_iter=100,k=1))
+    S.append(elegir_umbral(CLAHEs[2],T=128,k=2))
+    S.append(elegir_umbral(CLAHEs[3],T=128,k=3))
+    S.append(multi_otsu(CLAHEs[4],k=4))
+    S.append(k_means(CLAHEs[5],K=12,k=5))
+    S.append(elegir_umbral(CLAHEs[6],T=128,k=6))
+    S.append(k_means(CLAHEs[7],K=8,k=7))
+    S.append(k_means(CLAHEs[8],K=8,k=8))
+    S.append(elegir_umbral(CLAHEs[9],T=128,k=9))
+    S.append(k_means(CLAHEs[10],K=12,k=10))
+    S.append(k_means(CLAHEs[11],K=12,k=11))
+    
+    return S
 
 def elegir_umbral(image,T,k): 
     _, masc=cv.threshold(image,T,255,cv.THRESH_BINARY)
 
-    cv.namedWindow(f'Umbral T={T} - Imagen {k+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Umbral T={T} - Imagen {k+1}',masc)
-    cv.resizeWindow(f'Umbral T={T} - Imagen {k+1}',800,600)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-    return None
+    return (masc,"Umbral")
 
 def umbral_iterativo(image,T0,tol,max_iter,k):
     gris=image.astype(np.float32)
@@ -74,22 +186,12 @@ def umbral_iterativo(image,T0,tol,max_iter,k):
 
     mask=np.where(gris>T,255,0).astype(np.uint8)
     
-    cv.namedWindow(f'Umbral Iterativo - Imagen {k+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Umbral Iterativo - Imagen {k+1}',mask)
-    cv.resizeWindow(f'Umbral Iterativo - Imagen {k+1}',800,600)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-    return None
+    return (mask,"Umbral Iterativo")
 
 def otsu(image,k):
     T_otsu,mask= cv.threshold(image,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
     
-    cv.namedWindow(f'Otsu - Imagen {k+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Otsu - Imagen {k+1}',mask)
-    cv.resizeWindow(f'Otsu - Imagen {k+1}',800,600)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-    return None
+    return (mask,"Otsu")
 
 def regiones(image,k):
     blue=image[:,:]
@@ -98,12 +200,7 @@ def regiones(image,k):
     niveles=np.linspace(0,255,4).astype(np.uint8)
     resultado=niveles[clases]
 
-    cv.namedWindow(f'Regiones - Imagen {k+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Regiones - Imagen {k+1}',resultado)
-    cv.resizeWindow(f'Regiones - Imagen {k+1}',800,600)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-    return None
+    return (resultado,"Regiones")
 
 def multi_otsu(image,k):
     
@@ -112,12 +209,7 @@ def multi_otsu(image,k):
     niveles=np.linspace(0,255,4).astype(np.uint8)
     resultado=niveles[clases]
 
-    cv.namedWindow(f'Multi-Otsu - Imagen {k+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Multi-Otsu - Imagen {k+1}',resultado)
-    cv.resizeWindow(f'Multi-Otsu - Imagen {k+1}',800,600)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-    return None
+    return (resultado,"Multi-Otsu")
 
 def k_means(image,K,k):
     
@@ -137,12 +229,7 @@ def k_means(image,K,k):
     niveles=np.linspace(0,255,K).astype(np.uint8)
     resultado=niveles[labels_ord]
 
-    cv.namedWindow(f'Segmentacion K-means (K={K}) - Imagen {k+1}',cv.WINDOW_NORMAL)
-    cv.imshow(f'Segmentacion K-means (K={K}) - Imagen {k+1}',resultado)
-    cv.resizeWindow(f'Segmentacion K-means (K={K}) - Imagen {k+1}',800,600)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
-    return None    
+    return (resultado,"K-Means")
 
 #----------------------------------------------------
 #----------------- Histograma base ------------------
@@ -511,12 +598,17 @@ if mostrar_histogramas:
 
 
 CLAHEs=[]
+Segmentaciones=[]
+Morfologias=[]
 
 for n, (archivo, titulo) in enumerate(muestras):    
     CLAHEs.append(imagenes_CLAHE(archivo, titulo, ancho[n], alto[n], x_0[n], y_0[n], gamma=1.5))
 
-for k in range(len(CLAHEs)):
-    segmentacion(CLAHEs[k],k)
+Segmentaciones=segmentar(CLAHEs)
+
+Morfologias=morfologia(Segmentaciones)
+
+grafico(CLAHEs, Segmentaciones, Morfologias)
 
 #Resultados de las segmentaciones: perfeccion(de 0 a 1)
 
@@ -526,9 +618,18 @@ for k in range(len(CLAHEs)):
 # otsu:                     |0.5| 1 |0.4| 1 | 0 | 0 | 1 | 0 | 0 |0.9 |0.3 |  0 | p=
 # regiones:                 |0.4| 1 |0.3| 1 |0.1| 0 | 1 |0.1|0.2| 1  |  0 |  0 | p=
 # multi otsu:               |0.9| 1 |0.5| 1 |0.8| 0 |0.9|0.1| 0 | 1  | 0.4|  0 | p=
-# k-means (K=4):            |   |   |   |   |   |   |   |   |   |    |    |    | p=
-# k-means (K=8):            |   |   |   |   |   |   |   |   |   |    |    |    | p=
+# k-means (K=4):            |0.8| 1 |0.5| 1 |0.5| 0 | 1 |0.1|0.1| 1  | 0.3|  0 | p=
+# k-means (K=8):            |0.7| 1 |0.6| 1 |0.7| 0 | 1 |0.5|0.4| 1  | 0.5| 0.2| p=
+# k-means (K=12):           |   |   |   |   |   |   |   |   |   |    | 0.8| 0.6| p=
 
+#Resultados de las morfologias: perfeccion(de 0 a 1)
+
+# Morfologias e imagenes:| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+# dilatacion:            |   |   |   |   |   |   |   |   |   |    |    |    | p=
+# apertura:              |   |   |   |   |   |   |   |   |   |    |    |    | p=
+# erosion:               |   |   |   |   |   |   |   |   |   |    |    |    | p=
+# cierre:                |   |   |   |   |   |   |   |   |   |    |    |    | P=
+# extraccion:            |   |   |   |   |   |   |   |   |   |    |    |    | p=
 
 #------------------ Actualizar github ------------------
 
