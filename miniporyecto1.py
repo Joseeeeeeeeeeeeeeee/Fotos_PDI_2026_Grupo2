@@ -3,112 +3,86 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob #Añadido para poder leer todas las imágenes de la carpeta
 from skimage.filters import threshold_multiotsu
-#----------------------------------------------------
-#----------------- Graficos    ------------------
-#----------------------------------------------------
 
-def grafico(CLAHEs, Segmentaciones, Morfologias):
+#--------------------------------------------------------------------------------------------------------
+#----------------- Histograma base ----------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
+def histograma(img):
+    """Histograma base de una imagen uint8 en escala de grises."""
+    return cv.calcHist([img], [0], None, [256], [0, 256]).ravel()
 
-    for c in range(len(CLAHEs)):
-        clahe=CLAHEs[c]
-        segmentada,tipo_s=Segmentaciones[c]
-        morfologico,tipo_m=Morfologias[c]
+#-----------------------------------------------------------
+#----------------- Histograma normalizado ------------------
+#-----------------------------------------------------------
+def histograma_normalizado(img):
+    """Histograma dividido por el número total de píxeles."""
+    h = histograma(img)
+    return h / h.sum()
 
-        fig, axs=plt.subplots(1,3, figsize=(15,5))
+#--------------------------------------------------------
+#------------------ Mostrar histograma ------------------
+#--------------------------------------------------------
+def mostrar_histograma(img, titulo="", normalizado=False):
 
-        axs[0].imshow(clahe, cmap='gray', vmin=0, vmax=255)
-        axs[0].set_title(f'CLAHE - Imagen {c+1}')
-        axs[0].axis('off')
+    h = histograma_normalizado(img) if normalizado else histograma(img)
+    k = np.arange(256)
 
-        axs[1].imshow(segmentada, cmap='gray', vmin=0, vmax=255)
-        axs[1].set_title(f'Segmentacion: {tipo_s}')
-        axs[1].axis('off')
+    fig, ax = plt.subplots(1, 2, figsize=(11, 4))
+
+    ax[0].imshow(img, cmap="gray", vmin=0, vmax=255)
+    ax[0].set_title(titulo)
+    ax[0].axis("off")
+
+    ax[1].plot(k, h)
+    ax[1].set_xlim(0, 255)
+    ax[1].set_xlabel("Intensidad k")
+    ax[1].set_ylabel("p[k]" if normalizado else "h[k]")
+    ax[1].set_title(
+        "Histograma normalizado"
+        if normalizado
+        else "Histograma"
+    )
+    ax[1].grid(alpha=0.2)
+
+    plt.tight_layout()
+    plt.show()
+
+#--------------------------------------------------------------------------------------------------------------------------------------
+#------------------ Transformaciones de histograma CLAHE - GAMMA ------------------
+#--------------------------------------------------------------------------------------------------------------------------------------
+def aplicar_clahe(img, clip_limit=2.0, tile_grid_size=(8, 8)):
+
+    clahe = cv.createCLAHE(
+        clipLimit=clip_limit,
+        tileGridSize=tile_grid_size
+    )
+
+    return clahe.apply(img)
+
+def aplicar_gamma(img, gamma=1.5):
+
+    r = np.arange(256, dtype=np.float32)
+
+    lut = 255 * (r / 255.0) ** gamma
+
+    lut = np.clip(lut, 0, 255).astype(np.uint8)
+
+    return cv.LUT(img, lut)
+
+def aplicar_ecualizacion(img):
+
+    return cv.equalizeHist(img)
 
 
-        axs[2].imshow(morfologico, cmap='gray', vmin=0, vmax=255)
-        axs[2].set_title(f'Morfologia: {tipo_m}')
-        axs[2].axis('off')
+def aplicar_estiramiento(img):
 
-        plt.tight_layout()
-        plt.show()
-
-#----------------------------------------------------
-#----------------- Morfologia      ------------------
-#----------------------------------------------------
-
-def morfologia(Segmentaciones):
-    M=[]
-
-    M.append(apertura(Segmentaciones[0][0],0))
-    M.append(apertura(Segmentaciones[1][0],1))
-    M.append(apertura(Segmentaciones[2][0],2))
-    M.append(apertura(Segmentaciones[3][0],3))
-    M.append(apertura(Segmentaciones[4][0],4))
-    M.append(apertura(Segmentaciones[5][0],5))
-    M.append(apertura(Segmentaciones[6][0],6))
-    M.append(apertura(Segmentaciones[7][0],7))
-    M.append(apertura(Segmentaciones[8][0],8))
-    M.append(apertura(Segmentaciones[9][0],9))
-    M.append(apertura(Segmentaciones[10][0],10))
-    M.append(apertura(Segmentaciones[11][0],11))
-    #dilatacion(mask,B,x)
-    #apertura(mask,B,x)
-    #extraer(mask,B,x)
-    
-    return M
-
-def dilatacion(image,x):
-    mask=image.astype(np.uint8)
-    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
-
-    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
-
-    dilatada=cv.dilate(mask,B,iterations=1)
-
-    return (dilatada,"Dilatacion")
-
-def apertura(image,x):
-    mask=image.astype(np.uint8)
-    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
-
-    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
-
-    abierta=cv.morphologyEx(mask,cv.MORPH_OPEN,B)
-
-    return (abierta,"Apertura")
-
-def erosionar(image,x):
-    mask=image.astype(np.uint8)
-    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
-
-    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
-
-    erosionada=cv.erode(mask,B,iterations=1)
-
-    return (erosionada,"Erosion")
-
-def cierre(image,x):
-    mask=image.astype(np.uint8)
-    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
-
-    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
-
-    cerrada=cv.morphologyEx(mask,cv.MORPH_CLOSE,B)
-
-    return (cerrada,"Cierre")
-
-def extraer(image,x):
-    mask=image.astype(np.uint8)
-    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
-
-    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
-
-    extraccion=cv.erode(mask,B)
-
-    borde=cv.subtract(mask,extraccion)
-
-    return (borde,"Extraccion")
-
+    return cv.normalize(
+        img,
+        None,
+        0,
+        255,
+        cv.NORM_MINMAX
+    ).astype(np.uint8)
 
 #----------------------------------------------------
 #----------------- Imagenes CLAHE  ------------------
@@ -136,9 +110,216 @@ def imagenes_CLAHE(nombre_archivo, titulo, ancho, alto, x_0, y_0, gamma=1.5):
 
     return imagen_clahe
 
-#----------------------------------------------------
+#----------------------------------------------------------------
+#---------------- Comparación de transformaciones ---------------
+#----------------------------------------------------------------
+
+def comparar_transformaciones(nombre_archivo, titulo, ancho, alto, x_0, y_0, gamma=1.5):
+
+    imagen = cv.imread(nombre_archivo)
+
+    if imagen is None:
+        raise FileNotFoundError(
+            f"No se pudo leer la imagen: {nombre_archivo}"
+        )
+
+    imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
+
+    # ROI
+    x1 = x_0 + ancho
+    y1 = y_0 + alto
+
+    roi = imagen_RGB[y_0:y1, x_0:x1]
+
+    # Canales útiles
+    R = roi[:, :, 0]
+    G = roi[:, :, 1]
+
+    #------------------------------------------------
+    # Transformaciones Canal R
+    #------------------------------------------------
+
+    transformaciones_R = [
+        ("Original", R),
+        ("Ecualizacion", aplicar_ecualizacion(R)),
+        ("CLAHE", aplicar_clahe(R)),
+        (f"Gamma = {gamma}", aplicar_gamma(R, gamma)),
+        ("Estiramiento", aplicar_estiramiento(R))
+    ]
+
+    #------------------------------------------------
+    # Transformaciones Canal G
+    #------------------------------------------------
+
+    transformaciones_G = [
+        ("Original", G),
+        ("Ecualizacion", aplicar_ecualizacion(G)),
+        ("CLAHE", aplicar_clahe(G)),
+        (f"Gamma = {gamma}", aplicar_gamma(G, gamma)),
+        ("Estiramiento", aplicar_estiramiento(G))
+    ]
+
+    k = np.arange(256)
+
+    # 5 filas:
+    # Original
+    # Ecualizacion
+    # CLAHE
+    # Gamma
+    # Estiramiento
+    #
+    # 4 columnas:
+    # Imagen R | Histograma R | Imagen G | Histograma G
+
+    fig, ax = plt.subplots(5, 4, figsize=(20, 22))
+
+    for fila in range(5):
+
+        nombre_R, imagen_R = transformaciones_R[fila]
+        nombre_G, imagen_G = transformaciones_G[fila]
+
+        hist_R = histograma_normalizado(imagen_R)
+        hist_G = histograma_normalizado(imagen_G)
+
+        #------------------------------------------------
+        # Canal R - Imagen
+        #------------------------------------------------
+
+        ax[fila, 0].imshow(
+            imagen_R,
+            cmap="gray",
+            vmin=0,
+            vmax=255
+        )
+
+        ax[fila, 0].set_title(
+            f"R - {nombre_R}"
+        )
+
+        ax[fila, 0].axis("off")
+
+        #------------------------------------------------
+        # Canal R - Histograma
+        #------------------------------------------------
+
+        ax[fila, 1].plot(
+            k,
+            hist_R
+        )
+
+        ax[fila, 1].set_xlim(0, 255)
+        ax[fila, 1].set_xlabel("Intensidad k")
+        ax[fila, 1].set_ylabel("p[k]")
+
+        ax[fila, 1].grid(alpha=0.2)
+
+        #------------------------------------------------
+        # Canal G - Imagen
+        #------------------------------------------------
+
+        ax[fila, 2].imshow(
+            imagen_G,
+            cmap="gray",
+            vmin=0,
+            vmax=255
+        )
+
+        ax[fila, 2].set_title(
+            f"G - {nombre_G}"
+        )
+
+        ax[fila, 2].axis("off")
+
+        #------------------------------------------------
+        # Canal G - Histograma
+        #------------------------------------------------
+
+        ax[fila, 3].plot(
+            k,
+            hist_G
+        )
+
+        ax[fila, 3].set_xlim(0, 255)
+        ax[fila, 3].set_xlabel("Intensidad k")
+        ax[fila, 3].set_ylabel("p[k]")
+
+        ax[fila, 3].grid(alpha=0.2)
+
+    fig.suptitle(
+        titulo,
+        fontsize=16
+    )
+
+    plt.tight_layout()
+    plt.show()
+
+    return None
+#-------------------------------------------------------------------------------------------------------------------
+#------------------ Procesamiento de muestras ------------------
+#-------------------------------------------------------------------------------------------------------------------
+def procesar_muestra(nombre_archivo, titulo, ancho, alto, x_0, y_0):
+
+    imagen = cv.imread(nombre_archivo)
+
+    if imagen is None:
+        raise FileNotFoundError(
+            f"No se pudo leer la imagen: {nombre_archivo}"
+        )
+
+    imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
+
+    #roi_base = imagen_RGB[0:2296, 646:2820]
+
+    x1 = x_0 + ancho
+    y1 = y_0 + alto
+    roi = imagen_RGB[y_0:y1, x_0:x1]
+
+    R = roi[:, :, 0]
+    G = roi[:, :, 1]
+
+    hist_R = histograma_normalizado(R) #histograma(R) a histograma_normalizado(R)
+    hist_G = histograma_normalizado(G) #histograma(G) a histograma_normalizado(G)
+
+    k = np.arange(256)
+
+    fig, ax = plt.subplots(2, 2, figsize=(12, 8))
+    
+    #------------------------------------------
+    # ---------------- Canal R ----------------
+    #------------------------------------------
+    ax[0, 0].imshow(R, cmap="gray", vmin=0, vmax=255)
+    ax[0, 0].set_title("Canal R")
+    ax[0, 0].axis("off")
+
+    ax[0, 1].plot(k, hist_R)
+    ax[0, 1].set_xlim(0, 255)
+    ax[0, 1].set_xlabel("Intensidad k")
+    ax[0, 1].set_ylabel("p[k]")
+    ax[0, 1].set_title("Histograma normalizado R")
+    ax[0, 1].grid(alpha=0.2)
+
+    #------------------------------------------
+    # ---------------- Canal G ----------------
+    #------------------------------------------
+    ax[1, 0].imshow(G, cmap="gray", vmin=0, vmax=255)
+    ax[1, 0].set_title("Canal G")
+    ax[1, 0].axis("off")
+
+    ax[1, 1].plot(k, hist_G)
+    ax[1, 1].set_xlim(0, 255)
+    ax[1, 1].set_xlabel("Intensidad k")
+    ax[1, 1].set_ylabel("p[k]")
+    ax[1, 1].set_title("Histograma normalizado G")
+    ax[1, 1].grid(alpha=0.2)
+
+    fig.suptitle(titulo, fontsize=14)
+
+    plt.tight_layout()
+    plt.show()
+
+#--------------------------------------------------------------------------------------------------------
 #----------------- Segmentaciones  ------------------
-#----------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
 def segmentar(CLAHEs):
     
     S=[]
@@ -231,247 +412,143 @@ def k_means(image,K,k):
 
     return (resultado,"K-Means")
 
-#----------------------------------------------------
-#----------------- Histograma base ------------------
-#----------------------------------------------------
-def histograma(img):
-    """Histograma base de una imagen uint8 en escala de grises."""
-    return cv.calcHist([img], [0], None, [256], [0, 256]).ravel()
+#--------------------------------------------------------------------------------------------------------
+#----------------- Morfologia      ------------------
+#--------------------------------------------------------------------------------------------------------
 
-#-----------------------------------------------------------
-#----------------- Histograma normalizado ------------------
-#-----------------------------------------------------------
-def histograma_normalizado(img):
-    """Histograma dividido por el número total de píxeles."""
-    h = histograma(img)
-    return h / h.sum()
+def morfologia(Segmentaciones):
+    M=[]
 
-#--------------------------------------------------------
-#------------------ Mostrar histograma ------------------
-#--------------------------------------------------------
-def mostrar_histograma(img, titulo="", normalizado=False):
+    M.append(apertura(Segmentaciones[0][0],0))
+    M.append(apertura(Segmentaciones[1][0],1))
+    M.append(apertura(Segmentaciones[2][0],2))
+    M.append(apertura(Segmentaciones[3][0],3))
+    M.append(apertura(Segmentaciones[4][0],4))
+    M.append(apertura(Segmentaciones[5][0],5))
+    M.append(apertura(Segmentaciones[6][0],6))
+    M.append(apertura(Segmentaciones[7][0],7))
+    M.append(apertura(Segmentaciones[8][0],8))
+    M.append(apertura(Segmentaciones[9][0],9))
+    M.append(apertura(Segmentaciones[10][0],10))
+    M.append(apertura(Segmentaciones[11][0],11))
+    #dilatacion(mask,B,x)
+    #apertura(mask,B,x)
+    #extraer(mask,B,x)
+    
+    return M
 
-    h = histograma_normalizado(img) if normalizado else histograma(img)
-    k = np.arange(256)
+def dilatacion(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
 
-    fig, ax = plt.subplots(1, 2, figsize=(11, 4))
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
 
-    ax[0].imshow(img, cmap="gray", vmin=0, vmax=255)
-    ax[0].set_title(titulo)
-    ax[0].axis("off")
+    dilatada=cv.dilate(mask,B,iterations=1)
 
-    ax[1].plot(k, h)
-    ax[1].set_xlim(0, 255)
-    ax[1].set_xlabel("Intensidad k")
-    ax[1].set_ylabel("p[k]" if normalizado else "h[k]")
-    ax[1].set_title(
-        "Histograma normalizado"
-        if normalizado
-        else "Histograma"
-    )
-    ax[1].grid(alpha=0.2)
+    return (dilatada,"Dilatacion")
+
+def apertura(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    abierta=cv.morphologyEx(mask,cv.MORPH_OPEN,B)
+
+    return (abierta,"Apertura")
+
+def erosionar(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    erosionada=cv.erode(mask,B,iterations=1)
+
+    return (erosionada,"Erosion")
+
+def cierre(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    cerrada=cv.morphologyEx(mask,cv.MORPH_CLOSE,B)
+
+    return (cerrada,"Cierre")
+
+def extraer(image,x):
+    mask=image.astype(np.uint8)
+    _, mask=cv.threshold(mask,127,255,cv.THRESH_BINARY)
+
+    B=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+    extraccion=cv.erode(mask,B)
+
+    borde=cv.subtract(mask,extraccion)
+
+    return (borde,"Extraccion")
+
+def comparar_morfologias(segmentacion):
+
+    dilatada = dilatacion(segmentacion, 0)[0]
+    erosionada = erosionar(segmentacion, 0)[0]
+    abierta = apertura(segmentacion, 0)[0]
+    cerrada = cierre(segmentacion, 0)[0]
+
+    fig, ax = plt.subplots(1, 5, figsize=(20, 5))
+
+    ax[0].imshow(segmentacion, cmap="gray", vmin=0, vmax=255)
+    ax[0].set_title("Segmentacion")
+
+    ax[1].imshow(dilatada, cmap="gray", vmin=0, vmax=255)
+    ax[1].set_title("Dilatacion")
+
+    ax[2].imshow(erosionada, cmap="gray", vmin=0, vmax=255)
+    ax[2].set_title("Erosion")
+
+    ax[3].imshow(abierta, cmap="gray", vmin=0, vmax=255)
+    ax[3].set_title("Apertura")
+
+    ax[4].imshow(cerrada, cmap="gray", vmin=0, vmax=255)
+    ax[4].set_title("Cierre")
+
+    for a in ax:
+        a.axis("off")
 
     plt.tight_layout()
     plt.show()
 
-#----------------------------------------------------------------------------------
-#------------------ Transformaciones de histograma CLAHE - GAMMA ------------------
-#----------------------------------------------------------------------------------
-def aplicar_clahe(img, clip_limit=2.0, tile_grid_size=(8, 8)):
+#--------------------------------------------------------------------------------------------------------
+#----------------- Graficos    ----------------------
+#--------------------------------------------------------------------------------------------------------
 
-    clahe = cv.createCLAHE(
-        clipLimit=clip_limit,
-        tileGridSize=tile_grid_size
-    )
+def grafico(CLAHEs, Segmentaciones, Morfologias):
 
-    return clahe.apply(img)
+    for c in range(len(CLAHEs)):
+        clahe=CLAHEs[c]
+        segmentada,tipo_s=Segmentaciones[c]
+        morfologico,tipo_m=Morfologias[c]
 
-def aplicar_gamma(img, gamma=1.5):
+        fig, axs=plt.subplots(1,3, figsize=(15,5))
 
-    r = np.arange(256, dtype=np.float32)
+        axs[0].imshow(clahe, cmap='gray', vmin=0, vmax=255)
+        axs[0].set_title(f'CLAHE - Imagen {c+1}')
+        axs[0].axis('off')
 
-    lut = 255 * (r / 255.0) ** gamma
+        axs[1].imshow(segmentada, cmap='gray', vmin=0, vmax=255)
+        axs[1].set_title(f'Segmentacion: {tipo_s}')
+        axs[1].axis('off')
 
-    lut = np.clip(lut, 0, 255).astype(np.uint8)
 
-    return cv.LUT(img, lut)
-
-#----------------------------------------------------------------
-#---------------- Comparación de transformaciones ---------------
-#----------------------------------------------------------------
-def comparar_transformaciones(nombre_archivo,titulo, ancho, alto, x_0, y_0, gamma=1.5):
-
-    imagen = cv.imread(nombre_archivo)
-    
-    if imagen is None:
-        raise FileNotFoundError(
-            f"No se pudo leer la imagen: {nombre_archivo}"
-        )
-
-    imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
-
-    # ROI
-    x1 = x_0 + ancho
-    y1 = y_0 + alto
-    roi = imagen_RGB[y_0:y1, x_0:x1]
-
-    # Canales
-    R = roi[:, :, 0]
-    G = roi[:, :, 1]
-
-    canales = [
-        ("R", R),
-        ("G", G)
-    ]
-    
-    for nombre_canal, canal in canales:
-
-        # Aplicar transformaciones
-        imagen_clahe = aplicar_clahe(canal)
-        imagen_gamma = aplicar_gamma(canal, gamma)
-
-        # Histogramas
-        hist_original = histograma_normalizado(canal)
-        hist_clahe = histograma_normalizado(imagen_clahe)
-        hist_gamma = histograma_normalizado(imagen_gamma)
-
-        k = np.arange(256)
-
-        # Matriz 3x2
-        fig, ax = plt.subplots(3, 2, figsize=(12, 12))
-
-        #------------------------------------------------
-        # Fila 1: imagen original + histograma original
-        #------------------------------------------------
-
-        ax[0, 0].imshow(canal, cmap="gray", vmin=0, vmax=255)
-        ax[0, 0].set_title(f"Canal {nombre_canal} original")
-        ax[0, 0].axis("off")
-
-        ax[0, 1].plot(k, hist_original)
-        ax[0, 1].set_xlim(0, 255)
-        ax[0, 1].set_xlabel("Intensidad k")
-        ax[0, 1].set_ylabel("p[k]")
-        ax[0, 1].set_title("Histograma original")
-        ax[0, 1].grid(alpha=0.2)
-
-        #------------------------------------------------
-        # Fila 2: CLAHE + histograma CLAHE
-        #------------------------------------------------
-
-        ax[1, 0].imshow(imagen_clahe, cmap="gray", vmin=0, vmax=255)
-        ax[1, 0].set_title("CLAHE")
-        ax[1, 0].axis("off")
-
-        ax[1, 1].plot(k, hist_clahe)
-        ax[1, 1].set_xlim(0, 255)
-        ax[1, 1].set_xlabel("Intensidad k")
-        ax[1, 1].set_ylabel("p[k]")
-        ax[1, 1].set_title("Histograma CLAHE")
-        ax[1, 1].grid(alpha=0.2)
-
-        #------------------------------------------------
-        # Fila 3: Gamma + histograma Gamma
-        #------------------------------------------------
-
-        ax[2, 0].imshow(imagen_gamma, cmap="gray", vmin=0, vmax=255)
-        ax[2, 0].set_title(f"Gamma = {gamma}")
-        ax[2, 0].axis("off")
-
-        ax[2, 1].plot(k, hist_gamma)
-        ax[2, 1].set_xlim(0, 255)
-        ax[2, 1].set_xlabel("Intensidad k")
-        ax[2, 1].set_ylabel("p[k]")
-        ax[2, 1].set_title(f"Histograma Gamma = {gamma}")
-        ax[2, 1].grid(alpha=0.2)
-
-        fig.suptitle(
-            f"{titulo} - Canal {nombre_canal}",
-            fontsize=14
-        )
+        axs[2].imshow(morfologico, cmap='gray', vmin=0, vmax=255)
+        axs[2].set_title(f'Morfologia: {tipo_m}')
+        axs[2].axis('off')
 
         plt.tight_layout()
         plt.show()
 
-        #elegir_umbral(imagen_clahe,nombre_canal,T=128)
-        #umbral_iterativo(imagen_clahe,nombre_canal,T0=None,tol=0.5,max_iter=100)
-        #otsu(imagen_clahe,nombre_canal)
-        #regiones(imagen_clahe,nombre_canal)
-        #multi_otsu(imagen_clahe,nombre_canal)
-        #k_means(imagen_clahe,K=4)
-    return None
-
-#---------------------------------------------------------------
-#------------------ Procesamiento de muestras ------------------
-#---------------------------------------------------------------
-def procesar_muestra(nombre_archivo, titulo, ancho, alto, x_0, y_0):
-
-    imagen = cv.imread(nombre_archivo)
-
-    if imagen is None:
-        raise FileNotFoundError(
-            f"No se pudo leer la imagen: {nombre_archivo}"
-        )
-
-    imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
-
-    #roi_base = imagen_RGB[0:2296, 646:2820]
-
-    x1 = x_0 + ancho
-    y1 = y_0 + alto
-    roi = imagen_RGB[y_0:y1, x_0:x1]
-
-    R = roi[:, :, 0]
-    G = roi[:, :, 1]
-
-    hist_R = histograma_normalizado(R) #histograma(R) a histograma_normalizado(R)
-    hist_G = histograma_normalizado(G) #histograma(G) a histograma_normalizado(G)
-
-    k = np.arange(256)
-
-    fig, ax = plt.subplots(2, 2, figsize=(12, 8))
-    
-    #------------------------------------------
-    # ---------------- Canal R ----------------
-    #------------------------------------------
-    ax[0, 0].imshow(R, cmap="gray", vmin=0, vmax=255)
-    ax[0, 0].set_title("Canal R")
-    ax[0, 0].axis("off")
-
-    ax[0, 1].plot(k, hist_R)
-    ax[0, 1].set_xlim(0, 255)
-    ax[0, 1].set_xlabel("Intensidad k")
-    ax[0, 1].set_ylabel("p[k]")
-    ax[0, 1].set_title("Histograma normalizado R")
-    ax[0, 1].grid(alpha=0.2)
-
-    #------------------------------------------
-    # ---------------- Canal G ----------------
-    #------------------------------------------
-    ax[1, 0].imshow(G, cmap="gray", vmin=0, vmax=255)
-    ax[1, 0].set_title("Canal G")
-    ax[1, 0].axis("off")
-
-    ax[1, 1].plot(k, hist_G)
-    ax[1, 1].set_xlim(0, 255)
-    ax[1, 1].set_xlabel("Intensidad k")
-    ax[1, 1].set_ylabel("p[k]")
-    ax[1, 1].set_title("Histograma normalizado G")
-    ax[1, 1].grid(alpha=0.2)
-
-    fig.suptitle(titulo, fontsize=14)
-
-    plt.tight_layout()
-    plt.show()
-
-
-
-
-
-
-
-
-#---------------------------------------------------------------        ---------------------------
+#------------------------------------------------------------------------------------------
 #----------------------------------1.2.1---------------------------------------------------
 # Carguen, visualicen y recorten una región de interés cuando corresponda. En imágenes RGB,
 # comparen la escala de grises y los canales de color que resulten útiles para el problema.
@@ -596,20 +673,74 @@ if mostrar_histogramas:
 #for i, (archivo, titulo) in enumerate(muestras):
     #comparar_transformaciones(archivo,titulo, ancho[i], alto[i], x_0[i], y_0[i], gamma=1.5)
 
+mostrar_transformaciones = False
 
-CLAHEs=[]
-Segmentaciones=[]
-Morfologias=[]
+indices_representativos = [
+    0,   # Normal grande
+    2,   # Mojada grande
+    4,   # Seca grande
+    6,   # Normal pequeña
+    8,   # Mojada pequeña
+    10   # Seca pequeña
+]
 
-for n, (archivo, titulo) in enumerate(muestras):    
-    CLAHEs.append(imagenes_CLAHE(archivo, titulo, ancho[n], alto[n], x_0[n], y_0[n], gamma=1.5))
+if mostrar_transformaciones:
 
-Segmentaciones=segmentar(CLAHEs)
+    for i in indices_representativos:
 
-Morfologias=morfologia(Segmentaciones)
+        archivo, titulo = muestras[i]
 
-grafico(CLAHEs, Segmentaciones, Morfologias)
+        comparar_transformaciones(
+            archivo,
+            titulo,
+            ancho[i],
+            alto[i],
+            x_0[i],
+            y_0[i],
+            gamma=1.5
+        )
 
+#---------------------------------------------------------------------------------------------
+#---------------------------------- 1.3 ------------------------------------------------------
+#---------------------------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------------------------
+#---------------------------------- 1.3.1 ----------------------------------------------------
+#----------------------- Estrategias de segmentacion -----------------------------------------
+#---------------------------------------------------------------------------------------------
+
+mostrar_segmentacion = True
+
+if mostrar_segmentacion:
+
+    CLAHEs=[]
+    Segmentaciones=[]
+    Morfologias=[]
+
+    for n, (archivo, titulo) in enumerate(muestras):    
+        CLAHEs.append(
+            imagenes_CLAHE(
+                archivo,
+                titulo,
+                ancho[n],
+                alto[n],
+                x_0[n],
+                y_0[n],
+                gamma=1.5
+            )
+        )
+
+    Segmentaciones=segmentar(CLAHEs)
+
+    comparar_morfologias(Segmentaciones[0][0])
+
+    Morfologias=morfologia(Segmentaciones)
+
+    grafico(
+        CLAHEs,
+        Segmentaciones,
+        Morfologias
+    )
 #Resultados de las segmentaciones: perfeccion(de 0 a 1)
 
 # Segmentaciones e Imagenes:| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
@@ -630,6 +761,52 @@ grafico(CLAHEs, Segmentaciones, Morfologias)
 # erosion:               |   |   |   |   |   |   |   |   |   |    |    |    | p=
 # cierre:                |   |   |   |   |   |   |   |   |   |    |    |    | P=
 # extraccion:            |   |   |   |   |   |   |   |   |   |    |    |    | p=
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #------------------ Actualizar github ------------------
 
