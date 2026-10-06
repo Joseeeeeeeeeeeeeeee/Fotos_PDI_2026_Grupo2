@@ -419,16 +419,16 @@ def k_means(image,K,k):
 def morfologia(Segmentaciones):
     M=[]
 
-    M.append(apertura(Segmentaciones[0][0],0))
-    M.append(apertura(Segmentaciones[1][0],1))
-    M.append(apertura(Segmentaciones[2][0],2))
-    M.append(apertura(Segmentaciones[3][0],3))
-    M.append(apertura(Segmentaciones[4][0],4))
-    M.append(apertura(Segmentaciones[5][0],5))
-    M.append(apertura(Segmentaciones[6][0],6))
-    M.append(apertura(Segmentaciones[7][0],7))
-    M.append(apertura(Segmentaciones[8][0],8))
-    M.append(apertura(Segmentaciones[9][0],9))
+    M.append(cierre(Segmentaciones[0][0],0))
+    M.append(cierre(Segmentaciones[1][0],1))
+    M.append(cierre(Segmentaciones[2][0],2))
+    M.append(cierre(Segmentaciones[3][0],3))
+    M.append(cierre(Segmentaciones[4][0],4))
+    M.append(erosionar(Segmentaciones[5][0],5))
+    M.append(cierre(Segmentaciones[6][0],6)) #Conserva las venas del mismo grosor
+    M.append(cierre(Segmentaciones[7][0],7))
+    M.append(cierre(Segmentaciones[8][0],8))
+    M.append(cierre(Segmentaciones[9][0],9))
     M.append(apertura(Segmentaciones[10][0],10))
     M.append(apertura(Segmentaciones[11][0],11))
     #dilatacion(mask,B,x)
@@ -547,6 +547,104 @@ def grafico(CLAHEs, Segmentaciones, Morfologias):
 
         plt.tight_layout()
         plt.show()
+
+def grafico_secuencia_completa(nombre_archivo, titulo,
+                               ancho, alto, x_0, y_0,
+                               segmentacion, morfologia):
+
+    # ------------------------------------------------
+    # Imagen original y ROI
+    # ------------------------------------------------
+    imagen = cv.imread(nombre_archivo)
+
+    if imagen is None:
+        raise FileNotFoundError(
+            f"No se pudo leer la imagen: {nombre_archivo}"
+        )
+
+    imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
+
+    x1 = x_0 + ancho
+    y1 = y_0 + alto
+
+    roi = imagen_RGB[y_0:y1, x_0:x1]
+
+    # ------------------------------------------------
+    # Realce
+    # ------------------------------------------------
+    R = roi[:, :, 0]
+
+    realzada = aplicar_clahe(R)
+
+    # ------------------------------------------------
+    # Histograma de la imagen realzada
+    # ------------------------------------------------
+    hist = histograma_normalizado(realzada)
+    k = np.arange(256)
+
+    # ------------------------------------------------
+    # Resultado final:
+    # superponer la mascara final sobre la imagen
+    # ------------------------------------------------
+    #resultado_final = roi.copy()
+
+    #mascara_final = morfologia > 0
+
+    #resultado_final[mascara_final] = [255, 0, 0]
+
+    # ------------------------------------------------
+    # Grafico
+    # ------------------------------------------------
+    fig, ax = plt.subplots(2, 3, figsize=(15, 10))
+
+    # 1. Original
+    ax[0, 0].imshow(roi)
+    ax[0, 0].set_title("Imagen original")
+    ax[0, 0].axis("off")
+
+    # 2. Realce
+    ax[0, 1].imshow(realzada, cmap="gray", vmin=0, vmax=255)
+    ax[0, 1].set_title("Realce CLAHE")
+    ax[0, 1].axis("off")
+
+    # 3. Histograma
+    ax[0, 2].plot(k, hist)
+    ax[0, 2].set_xlim(0, 255)
+    ax[0, 2].set_xlabel("Intensidad k")
+    ax[0, 2].set_ylabel("p[k]")
+    ax[0, 2].set_title("Histograma")
+    ax[0, 2].grid(alpha=0.2)
+
+    # 4. Mascara inicial
+    ax[1, 0].imshow(segmentacion, cmap="gray", vmin=0, vmax=255)
+    ax[1, 0].set_title("Mascara inicial")
+    ax[1, 0].axis("off")
+
+    # 5. Procesamiento morfologico
+    ax[1, 1].imshow(morfologia, cmap="gray", vmin=0, vmax=255)
+    ax[1, 1].set_title("Procesamiento morfologico")
+    ax[1, 1].axis("off")
+
+    resultado_final = cv.bitwise_and(
+        realzada,
+        realzada,
+        mask=morfologia
+    )
+
+    # 6. Resultado final
+    ax[1, 2].imshow(
+        resultado_final,
+        cmap="gray",
+        vmin=0,
+        vmax=255
+    )
+    ax[1, 2].set_title("Resultado final")
+    ax[1, 2].axis("off")
+
+    fig.suptitle(titulo, fontsize=16)
+
+    plt.tight_layout()
+    plt.show()
 
 #------------------------------------------------------------------------------------------
 #----------------------------------1.2.1---------------------------------------------------
@@ -732,15 +830,21 @@ if mostrar_segmentacion:
 
     Segmentaciones=segmentar(CLAHEs)
 
-    comparar_morfologias(Segmentaciones[0][0])
+
+#---------------------------------------------------------------------------------------------
+#---------------------------------- 1.3.2 ----------------------------------------------------
+# Refinamiento mediante operaciones morfologicas
+#---------------------------------------------------------------------------------------------
+
+    #comparar_morfologias(Segmentaciones[x][0]) Compara cada morfologia, con x = 0 hasta x = 11.
 
     Morfologias=morfologia(Segmentaciones)
 
-    grafico(
-        CLAHEs,
-        Segmentaciones,
-        Morfologias
-    )
+#    grafico(
+#        CLAHEs,
+#        Segmentaciones,
+#        Morfologias
+#    )
 #Resultados de las segmentaciones: perfeccion(de 0 a 1)
 
 # Segmentaciones e Imagenes:| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
@@ -762,18 +866,185 @@ if mostrar_segmentacion:
 # cierre:                |   |   |   |   |   |   |   |   |   |    |    |    | P=
 # extraccion:            |   |   |   |   |   |   |   |   |   |    |    |    | p=
 
+#---------------------------------------------------------------------------------------------
+#---------------------------------- 1.3.4 ----------------------------------------------------
+# Secuencia
+#---------------------------------------------------------------------------------------------
+
+indice = 0 #Escoger cual foto mostrar. indice=0 es la primera foto, indice=11 es la ultima foto
+
+archivo, titulo = muestras[indice]
+
+grafico_secuencia_completa(
+    archivo,
+    titulo,
+    ancho[indice],
+    alto[indice],
+    x_0[indice],
+    y_0[indice],
+    Segmentaciones[indice][0],
+    Morfologias[indice][0]
+)
+
+#---------------------------------------------------------------------------------------------
+#---------------------------------- 1.3.5 ----------------------------------------------------
+# Ia
+#---------------------------------------------------------------------------------------------
 
 
 
+#---------------------------------------------------------------------------------------------
+#---------------------------------- 1.3.6 ----------------------------------------------------
+# Métricas
+#---------------------------------------------------------------------------------------------
 
+# Cargar imagen generada por IA en escala de grises
+ia = cv.imread(
+    "Gemini_Generated_Image_s73ki8s73ki8s73k.jpeg", cv.IMREAD_GRAYSCALE)
 
+if ia is None:
+    raise FileNotFoundError("No se pudo cargar la imagen generada por IA")
 
+# Convertir la salida de IA a una máscara binaria
+_, ia_binaria = cv.threshold(ia, 127, 255, cv.THRESH_BINARY)
 
+# Guardar la máscara binaria sin compresión con pérdida
+cv.imwrite(
+    "Gemini_Generated_Image_s73ki8s73ki8s73k_binaria.png", ia_binaria)
 
+print("Dimensiones máscara IA:", ia_binaria.shape) #1536, 2730
+print("Dimensiones máscara método:", Morfologias[0][0].shape) #1867, 1861
 
+# Dimensiones de la imagen original
+alto_original = 2296
+ancho_original = 4080
 
+# Factores de escala entre la imagen original y la salida de IA
+escala_x = ia_binaria.shape[1] / ancho_original
+escala_y = ia_binaria.shape[0] / alto_original
 
+# Coordenadas equivalentes del ROI en la imagen generada por IA
+x0_ia = round(x_0[0] * escala_x)
+y0_ia = round(y_0[0] * escala_y)
 
+x1_ia = round((x_0[0] + ancho[0]) * escala_x)
+y1_ia = round((y_0[0] + alto[0]) * escala_y)
+
+# Recortar la misma región utilizada por nuestro método
+ia_roi = ia_binaria[
+    y0_ia:y1_ia,
+    x0_ia:x1_ia
+]
+
+# Ajustar exactamente al tamaño de la máscara de nuestro método
+ia_roi = cv.resize(
+    ia_roi,
+    (
+        Morfologias[0][0].shape[1],
+        Morfologias[0][0].shape[0]
+    ),
+    interpolation=cv.INTER_NEAREST
+)
+
+print("Dimensiones IA recortada:", ia_roi.shape)
+print("Dimensiones método:", Morfologias[0][0].shape)
+
+mascara_metodo = Morfologias[0][0]
+
+superposicion = np.zeros(
+    (mascara_metodo.shape[0], mascara_metodo.shape[1], 3),
+    dtype=np.uint8
+)
+
+metodo_bool = mascara_metodo > 0
+ia_bool = ia_roi > 0
+
+# Solo método
+superposicion[metodo_bool] = [255, 0, 0]
+
+# Solo IA
+superposicion[ia_bool] = [0, 255, 0]
+
+# Coinciden ambos
+superposicion[metodo_bool & ia_bool] = [255, 255, 255]
+
+plt.figure(figsize=(7, 7))
+plt.imshow(superposicion)
+plt.title("Superposición método vs IA")
+plt.axis("off")
+plt.show()
+
+# ------------------------------------------------
+# Métrica global: MAE
+# ------------------------------------------------
+
+metodo_float = mascara_metodo.astype(np.float32)
+ia_float = ia_roi.astype(np.float32)
+
+mae = np.mean(
+    np.abs(metodo_float - ia_float)
+)
+
+# ------------------------------------------------
+# Métrica entre máscaras: IoU
+# ------------------------------------------------
+
+metodo_bool = mascara_metodo > 0
+ia_bool = ia_roi > 0
+
+interseccion = np.logical_and(
+    metodo_bool,
+    ia_bool
+).sum()
+
+union = np.logical_or(
+    metodo_bool,
+    ia_bool
+).sum()
+
+iou = interseccion / union if union > 0 else 1.0
+
+# ------------------------------------------------
+# Mostrar resultados
+# ------------------------------------------------
+
+print("MAE:", mae)
+print("IoU:", iou)
+
+#---------------------------------------------------------------------------------------------
+#---------------------------------- 1.3.7 ----------------------------------------------------
+# Comparacion entre condiciones
+#---------------------------------------------------------------------------------------------
+
+fig, ax = plt.subplots(2, 3, figsize=(15, 10))
+
+for j, i in enumerate(indices_representativos):
+
+    fila = j // 3
+    columna = j % 3
+
+    mascara = Morfologias[i][0]
+
+    ax[fila, columna].imshow(
+        mascara,
+        cmap="gray",
+        vmin=0,
+        vmax=255
+    )
+
+    ax[fila, columna].set_title(
+        muestras[i][1]
+    )
+
+    ax[fila, columna].axis("off")
+
+plt.suptitle(
+    "Comparación de segmentación entre condiciones",
+    fontsize=16
+)
+
+plt.tight_layout()
+plt.show()
 
 
 
