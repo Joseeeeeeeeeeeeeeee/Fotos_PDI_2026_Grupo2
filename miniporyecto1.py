@@ -413,7 +413,7 @@ def k_means(image,K,k):
     return (resultado,"K-Means")
 
 #--------------------------------------------------------------------------------------------------------
-#----------------- Morfologia      ------------------
+#----------------- Morfologia      ----------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
 
 def morfologia(Segmentaciones):
@@ -771,10 +771,10 @@ if mostrar_histogramas:
 #for i, (archivo, titulo) in enumerate(muestras):
     #comparar_transformaciones(archivo,titulo, ancho[i], alto[i], x_0[i], y_0[i], gamma=1.5)
 
-mostrar_transformaciones = False
+mostrar_transformaciones = True
 
 indices_representativos = [
-    0,   # Normal grande
+    1,   # Normal grande
     2,   # Mojada grande
     4,   # Seca grande
     6,   # Normal pequeña
@@ -807,7 +807,7 @@ if mostrar_transformaciones:
 #----------------------- Estrategias de segmentacion -----------------------------------------
 #---------------------------------------------------------------------------------------------
 
-mostrar_segmentacion = True
+mostrar_segmentacion = False
 
 if mostrar_segmentacion:
 
@@ -910,10 +910,11 @@ for indice in indices_representativos:
 #---------------------------------- 1.3.6 ----------------------------------------------------
 # Métricas
 #---------------------------------------------------------------------------------------------
+indice_ia = 1
 
 # Cargar imagen generada por IA en escala de grises
 ia = cv.imread(
-    "Gemini_Generated_Image_s73ki8s73ki8s73k.jpeg", cv.IMREAD_GRAYSCALE)
+    "Gemini_Generated_Image_5ieckk5ieckk5iec.jpg", cv.IMREAD_GRAYSCALE)
 
 if ia is None:
     raise FileNotFoundError("No se pudo cargar la imagen generada por IA")
@@ -923,10 +924,10 @@ _, ia_binaria = cv.threshold(ia, 127, 255, cv.THRESH_BINARY)
 
 # Guardar la máscara binaria sin compresión con pérdida
 cv.imwrite(
-    "Gemini_Generated_Image_s73ki8s73ki8s73k_binaria.png", ia_binaria)
+    "Gemini_Generated_Image_5ieckk5ieckk5iec.png", ia_binaria)
 
 print("Dimensiones máscara IA:", ia_binaria.shape) #1536, 2730
-print("Dimensiones máscara método:", Morfologias[0][0].shape) #1867, 1861
+print("Dimensiones máscara método:", Morfologias[indice_ia][0].shape)
 
 # Dimensiones de la imagen original
 alto_original = 2296
@@ -937,11 +938,11 @@ escala_x = ia_binaria.shape[1] / ancho_original
 escala_y = ia_binaria.shape[0] / alto_original
 
 # Coordenadas equivalentes del ROI en la imagen generada por IA
-x0_ia = round(x_0[0] * escala_x)
-y0_ia = round(y_0[0] * escala_y)
+x0_ia = round(x_0[indice_ia] * escala_x)
+y0_ia = round(y_0[indice_ia] * escala_y)
 
-x1_ia = round((x_0[0] + ancho[0]) * escala_x)
-y1_ia = round((y_0[0] + alto[0]) * escala_y)
+x1_ia = round((x_0[indice_ia] + ancho[indice_ia]) * escala_x)
+y1_ia = round((y_0[indice_ia] + alto[indice_ia]) * escala_y)
 
 # Recortar la misma región utilizada por nuestro método
 ia_roi = ia_binaria[
@@ -953,16 +954,16 @@ ia_roi = ia_binaria[
 ia_roi = cv.resize(
     ia_roi,
     (
-        Morfologias[0][0].shape[1],
-        Morfologias[0][0].shape[0]
+        Morfologias[indice_ia][0].shape[1],
+        Morfologias[indice_ia][0].shape[0]
     ),
     interpolation=cv.INTER_NEAREST
 )
 
 print("Dimensiones IA recortada:", ia_roi.shape)
-print("Dimensiones método:", Morfologias[0][0].shape)
+print("Dimensiones método:", Morfologias[indice_ia][0].shape)
 
-mascara_metodo = Morfologias[0][0]
+mascara_metodo = Morfologias[indice_ia][0]
 
 superposicion = np.zeros(
     (mascara_metodo.shape[0], mascara_metodo.shape[1], 3),
