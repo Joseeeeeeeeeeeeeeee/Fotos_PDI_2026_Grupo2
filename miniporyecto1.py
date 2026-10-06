@@ -871,20 +871,33 @@ if mostrar_segmentacion:
 # Secuencia
 #---------------------------------------------------------------------------------------------
 
-indice = 0 #Escoger cual foto mostrar. indice=0 es la primera foto, indice=11 es la ultima foto
+#indice = 0 #Escoger cual foto mostrar. indice=0 es la primera foto, indice=11 es la ultima foto
 
-archivo, titulo = muestras[indice]
+#archivo, titulo = muestras[indice]
 
-grafico_secuencia_completa(
-    archivo,
-    titulo,
-    ancho[indice],
-    alto[indice],
-    x_0[indice],
-    y_0[indice],
-    Segmentaciones[indice][0],
-    Morfologias[indice][0]
-)
+#grafico_secuencia_completa(
+    #archivo,
+    #titulo,
+    #ancho[indice],
+    #alto[indice],
+    #x_0[indice],
+    #y_0[indice],
+    #Segmentaciones[indice][0],
+    #Morfologias[indice][0]
+#)
+
+for indice in indices_representativos:
+
+    archivo, titulo=muestras[indice]
+    grafico_secuencia_completa(
+        archivo,
+        titulo,
+        ancho[indice],
+        alto[indice],
+        x_0[indice],
+        y_0[indice],
+        Segmentaciones[indice][0],
+        Morfologias[indice][0])
 
 #---------------------------------------------------------------------------------------------
 #---------------------------------- 1.3.5 ----------------------------------------------------
