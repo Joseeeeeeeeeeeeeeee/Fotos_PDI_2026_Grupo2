@@ -621,7 +621,7 @@ def elegir_umbral(image,T,k):
     return (masc,"Umbral")
 
 def umbral_iterativo(image,T0,tol,max_iter,k):
-    gris=image.astype(np.float32)
+    gris=image.astype(np.float32)g
     T=float(image.mean() if T0 is None else T0)
 
     for _ in range(max_iter):
