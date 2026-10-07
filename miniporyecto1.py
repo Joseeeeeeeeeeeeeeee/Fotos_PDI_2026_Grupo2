@@ -2,7 +2,283 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 import glob #Añadido para poder leer todas las imágenes de la carpeta
+import os
 from skimage.filters import threshold_multiotsu
+
+
+#---------------------------------------------------------------------------------------------
+#-------------------------- Comparacion IA vs metodo manual -----------------------------------
+#---------------------------------------------------------------------------------------------
+
+def obtener_roi_ia(imagen_ia, x, y, ancho_roi, alto_roi):
+
+    alto_ia, ancho_ia = imagen_ia.shape[:2]
+
+    # Tamaño de la imagen original
+    ancho_original = 4080
+    alto_original = 2296
+
+    # Factores de escala
+    escala_x = ancho_ia / ancho_original
+    escala_y = alto_ia / alto_original
+
+    # Coordenadas equivalentes en la imagen IA
+    x0_ia = round(x * escala_x)
+    y0_ia = round(y * escala_y)
+
+    x1_ia = round((x + ancho_roi) * escala_x)
+    y1_ia = round((y + alto_roi) * escala_y)
+
+    # Evitar salir de los límites
+    x0_ia = max(0, min(x0_ia, ancho_ia))
+    x1_ia = max(0, min(x1_ia, ancho_ia))
+    y0_ia = max(0, min(y0_ia, alto_ia))
+    y1_ia = max(0, min(y1_ia, alto_ia))
+
+    roi = imagen_ia[y0_ia:y1_ia, x0_ia:x1_ia]
+
+    return roi
+
+
+def preparar_mascara_ia(nombre_archivo, x, y, ancho_roi, alto_roi,
+                         tamaño_destino):
+    
+
+    ia = cv.imread(nombre_archivo, cv.IMREAD_GRAYSCALE)
+
+    if ia is None:
+        raise FileNotFoundError(
+            f"No se pudo cargar la imagen IA: {nombre_archivo}"
+        )
+
+    # Convertir a máscara binaria
+    _, ia_binaria = cv.threshold(
+        ia,
+        127,
+        255,
+        cv.THRESH_BINARY
+    )
+
+    # Obtener ROI
+    ia_roi = obtener_roi_ia(
+        ia_binaria,
+        x,
+        y,
+        ancho_roi,
+        alto_roi
+    )
+
+    if ia_roi.size == 0:
+        raise ValueError(
+            f"El ROI de {nombre_archivo} está vacío."
+        )
+
+    # Ajustar exactamente al tamaño de la máscara manual
+    ia_roi = cv.resize(
+        ia_roi,
+        (
+            tamaño_destino[1],
+            tamaño_destino[0]
+        ),
+        interpolation=cv.INTER_NEAREST
+    )
+
+    return ia_roi
+
+
+def calcular_metricas(mascara_manual, mascara_ia):
+    
+
+    # Convertir a booleanos para IoU
+    manual_bool = mascara_manual > 0
+    ia_bool = mascara_ia > 0
+
+    # ------------------------------------------------
+    # MAE
+    # ------------------------------------------------
+
+    manual_float = mascara_manual.astype(np.float32)
+    ia_float = mascara_ia.astype(np.float32)
+
+    # MAE normalizado entre 0 y 1
+    mae = np.mean(
+        np.abs(manual_float - ia_float)
+    ) / 255.0
+
+    # ------------------------------------------------
+    # IoU
+    # ------------------------------------------------
+
+    interseccion = np.logical_and(
+        manual_bool,
+        ia_bool
+    ).sum()
+
+    union = np.logical_or(
+        manual_bool,
+        ia_bool
+    ).sum()
+
+    if union > 0:
+        iou = interseccion / union
+    else:
+        iou = 1.0
+
+    return mae, iou
+
+
+def crear_superposicion(mascara_manual, mascara_ia):
+    
+
+    manual_bool = mascara_manual > 0
+    ia_bool = mascara_ia > 0
+
+    superposicion = np.zeros(
+        (
+            mascara_manual.shape[0],
+            mascara_manual.shape[1],
+            3
+        ),
+        dtype=np.uint8
+    )
+
+    # Solo manual
+    superposicion[manual_bool & ~ia_bool] = [255, 0, 0]
+
+    # Solo IA
+    superposicion[ia_bool & ~manual_bool] = [0, 255, 0]
+
+    # Coincidencia
+    superposicion[manual_bool & ia_bool] = [255, 255, 255]
+
+    return superposicion
+
+
+def comparar_12_segmentaciones_ia(imagenes_ia, muestras,
+                                  ancho, alto, x_0, y_0,
+                                  morfologias,
+                                  mostrar_superposiciones=True):
+
+
+    resultados = []
+
+    print("\n")
+    print("=" * 75)
+    print("        COMPARACIÓN SEGMENTACIÓN MANUAL VS IA")
+    print("=" * 75)
+
+    for i in range(len(imagenes_ia)):
+
+        print(f"\nProcesando imagen {i + 1}/12...")
+
+        # ------------------------------------------------
+        # Segmentación manual
+        # ------------------------------------------------
+
+        mascara_manual = morfologias[i][0]
+
+        # ------------------------------------------------
+        # Segmentación IA
+        # ------------------------------------------------
+
+        mascara_ia = preparar_mascara_ia(
+            imagenes_ia[i],
+            x_0[i],
+            y_0[i],
+            ancho[i],
+            alto[i],
+            mascara_manual.shape
+        )
+
+        # ------------------------------------------------
+        # Métricas
+        # ------------------------------------------------
+
+        mae, iou = calcular_metricas(
+            mascara_manual,
+            mascara_ia
+        )
+
+        # ------------------------------------------------
+        # Superposición
+        # ------------------------------------------------
+
+        superposicion = crear_superposicion(
+            mascara_manual,
+            mascara_ia
+        )
+
+        # Guardar resultados
+        resultados.append({
+            "imagen": i + 1,
+            "archivo": imagenes_ia[i],
+            "titulo": muestras[i][1],
+            "MAE": mae,
+            "IoU": iou
+        })
+
+        # ------------------------------------------------
+        # Imprimir resultado
+        # ------------------------------------------------
+
+        print("-" * 75)
+        print(f"Imagen : {i + 1}")
+        print(f"Nombre : {muestras[i][1]}")
+        print(f"IA     : {imagenes_ia[i]}")
+        print(f"MAE    : {mae:.6f}")
+        print(f"IoU    : {iou:.6f}")
+        print("-" * 75)
+
+        # ------------------------------------------------
+        # Mostrar superposición
+        # ------------------------------------------------
+
+        if mostrar_superposiciones:
+
+            plt.figure(figsize=(7, 7))
+
+            plt.imshow(superposicion)
+
+            plt.title(
+                f"{muestras[i][1]}\n"
+                f"MAE = {mae:.6f} | IoU = {iou:.6f}"
+            )
+
+            plt.axis("off")
+            plt.tight_layout()
+            plt.show()
+
+    # ----------------------------------------------------
+    # Tabla final
+    # ----------------------------------------------------
+
+    print("\n")
+    print("=" * 75)
+    print("                         RESULTADOS")
+    print("=" * 75)
+
+    print(
+        f"{'Imagen':<8}"
+        f"{'Condición':<30}"
+        f"{'MAE':<15}"
+        f"{'IoU':<15}"
+    )
+
+    print("-" * 75)
+
+    for resultado in resultados:
+
+        print(
+            f"{resultado['imagen']:<8}"
+            f"{resultado['titulo']:<30}"
+            f"{resultado['MAE']:<15.6f}"
+            f"{resultado['IoU']:<15.6f}"
+        )
+
+    print("=" * 75)
+
+    return resultados
+
 
 #--------------------------------------------------------------------------------------------------------
 #----------------- Histograma base ----------------------------------------------------------------------
@@ -768,8 +1044,8 @@ if mostrar_histogramas:
 #vistas en clases. Muestren la imagen y su histograma antes y después del procesamiento
 #---------------------------------------------------------------------------------------------
 
-#for i, (archivo, titulo) in enumerate(muestras):
-    #comparar_transformaciones(archivo,titulo, ancho[i], alto[i], x_0[i], y_0[i], gamma=1.5)
+for i, (archivo, titulo) in enumerate(muestras):
+    comparar_transformaciones(archivo,titulo, ancho[i], alto[i], x_0[i], y_0[i], gamma=1.5)
 
 mostrar_transformaciones = False
 
@@ -912,185 +1188,55 @@ for indice in indices_representativos:
 #---------------------------------------------------------------------------------------------
 
 # Cargar imagen generada por IA en escala de grises
-ia = cv.imread(
-    "Gemini_Generated_Image_s73ki8s73ki8s73k.jpeg", cv.IMREAD_GRAYSCALE)
-
-if ia is None:
-    raise FileNotFoundError("No se pudo cargar la imagen generada por IA")
-
-# Convertir la salida de IA a una máscara binaria
-_, ia_binaria = cv.threshold(ia, 127, 255, cv.THRESH_BINARY)
-
-# Guardar la máscara binaria sin compresión con pérdida
-cv.imwrite(
-    "Gemini_Generated_Image_s73ki8s73ki8s73k_binaria.png", ia_binaria)
-
-print("Dimensiones máscara IA:", ia_binaria.shape) #1536, 2730
-print("Dimensiones máscara método:", Morfologias[0][0].shape) #1867, 1861
-
-# Dimensiones de la imagen original
-alto_original = 2296
-ancho_original = 4080
-
-# Factores de escala entre la imagen original y la salida de IA
-escala_x = ia_binaria.shape[1] / ancho_original
-escala_y = ia_binaria.shape[0] / alto_original
-
-# Coordenadas equivalentes del ROI en la imagen generada por IA
-x0_ia = round(x_0[0] * escala_x)
-y0_ia = round(y_0[0] * escala_y)
-
-x1_ia = round((x_0[0] + ancho[0]) * escala_x)
-y1_ia = round((y_0[0] + alto[0]) * escala_y)
-
-# Recortar la misma región utilizada por nuestro método
-ia_roi = ia_binaria[
-    y0_ia:y1_ia,
-    x0_ia:x1_ia
+imagenes_IA = [
+    "Gemini_Generated_Image_s73ki8s73ki8s73k.jpeg", #1
+    "Gemini_Generated_Image_k4he2yk4he2yk4he.jpg",  #2
+    "Gemini_Generated_Image_o9vkybo9vkybo9vk.jpg",  #3 
+    "Gemini_Generated_Image_w4scvuw4scvuw4sc.jpg",  #4
+    "Gemini_Generated_Image_bywng3bywng3bywn.jpg",  #5
+    "Gemini_Generated_Image_npxwvwnpxwvwnpxw.jpg",  #6
+    "Gemini_Generated_Image_lbwvklbwvklbwvkl.jpg",  #7
+    "Gemini_Generated_Image_3bk95n3bk95n3bk9.jpg",  #8
+    "Gemini_Generated_Image_dtgvipdtgvipdtgv.jpg",  #9
+    "Gemini_Generated_Image_ubcjfcubcjfcubcj.jpg",  #10
+    "Gemini_Generated_Image_3tqg2t3tqg2t3tqg.jpg",  #11
+    "Gemini_Generated_Image_flzqwwflzqwwflzq.jpg"   #12
 ]
 
-# Ajustar exactamente al tamaño de la máscara de nuestro método
-ia_roi = cv.resize(
-    ia_roi,
-    (
-        Morfologias[0][0].shape[1],
-        Morfologias[0][0].shape[0]
-    ),
-    interpolation=cv.INTER_NEAREST
-)
 
-print("Dimensiones IA recortada:", ia_roi.shape)
-print("Dimensiones método:", Morfologias[0][0].shape)
-
-mascara_metodo = Morfologias[0][0]
-
-superposicion = np.zeros(
-    (mascara_metodo.shape[0], mascara_metodo.shape[1], 3),
-    dtype=np.uint8
-)
-
-metodo_bool = mascara_metodo > 0
-ia_bool = ia_roi > 0
-
-# Solo método
-superposicion[metodo_bool] = [255, 0, 0]
-
-# Solo IA
-superposicion[ia_bool] = [0, 255, 0]
-
-# Coinciden ambos
-superposicion[metodo_bool & ia_bool] = [255, 255, 255]
-
-plt.figure(figsize=(7, 7))
-plt.imshow(superposicion)
-plt.title("Superposición método vs IA")
-plt.axis("off")
-plt.show()
 
 # ------------------------------------------------
 # Métrica global: MAE
 # ------------------------------------------------
 
-metodo_float = mascara_metodo.astype(np.float32)
-ia_float = ia_roi.astype(np.float32)
 
-mae = np.mean(
-    np.abs(metodo_float - ia_float)
-)
 
 # ------------------------------------------------
 # Métrica entre máscaras: IoU
 # ------------------------------------------------
 
-metodo_bool = mascara_metodo > 0
-ia_bool = ia_roi > 0
-
-interseccion = np.logical_and(
-    metodo_bool,
-    ia_bool
-).sum()
-
-union = np.logical_or(
-    metodo_bool,
-    ia_bool
-).sum()
-
-iou = interseccion / union if union > 0 else 1.0
 
 # ------------------------------------------------
 # Mostrar resultados
 # ------------------------------------------------
 
-print("MAE:", mae)
-print("IoU:", iou)
 
 #---------------------------------------------------------------------------------------------
 #---------------------------------- 1.3.7 ----------------------------------------------------
 # Comparacion entre condiciones
 #---------------------------------------------------------------------------------------------
 
-fig, ax = plt.subplots(2, 3, figsize=(15, 10))
 
-for j, i in enumerate(indices_representativos):
-
-    fila = j // 3
-    columna = j % 3
-
-    mascara = Morfologias[i][0]
-
-    ax[fila, columna].imshow(
-        mascara,
-        cmap="gray",
-        vmin=0,
-        vmax=255
-    )
-
-    ax[fila, columna].set_title(
-        muestras[i][1]
-    )
-
-    ax[fila, columna].axis("off")
-
-plt.suptitle(
-    "Comparación de segmentación entre condiciones",
-    fontsize=16
+resultados = comparar_12_segmentaciones_ia(
+    imagenes_ia=imagenes_IA,
+    muestras=muestras,
+    ancho=ancho,
+    alto=alto,
+    x_0=x_0,
+    y_0=y_0,
+    morfologias=Morfologias,
+    mostrar_superposiciones=True
 )
-
-plt.tight_layout()
-plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #------------------ Actualizar github ------------------
 
