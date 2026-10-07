@@ -1,0 +1,59 @@
+import cv2 as cv
+import numpy as np
+import matplotlib.pyplot as plt
+from skimage.filters import threshold_multiotsu
+
+image=cv.imread('IMG_20260901_161409949.jpg')
+gray=cv.cvtColor(image,cv.COLOR_BGR2GRAY)
+
+#Segmentacion normal:
+T=128
+_, masc=cv.threshold(gray,T,255,cv.THRESH_BINARY)
+
+cv.imwrite('segmentacionT128.jpg',masc)
+
+#Segmentacion por histograma:
+
+hist=cv.calcHist([gray],[0], None, [256],[0,256]).ravel()
+
+#plt.plot(hist)
+#plt.axvline(T,linestyle="--")
+#plt.xlabel('Intensidad (k)')
+#plt.ylabel('Frecuencia')
+#plt.show()
+
+#Segmentacion Otsu:
+
+T_otsu, mask=cv.threshold(gray,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+
+#print("Umbral Otsu:",T_otsu)
+
+#cv.imshow("Resultado",mask)
+
+#Multiples Regiones:
+
+gris=image[:,:,0]
+
+umbrales=[41,69,127]
+clases=np.digitize(gris,umbrales)
+
+niveles=np.linspace(0,255,4).astype(np.uint8)
+resultados=niveles[clases]
+
+#Multi Otsu:
+
+multi_umbrales=threshold_multiotsu(gray,classes=4)
+multi_clases=np.digitize(gray,bins=multi_umbrales)
+
+multi_niveles=np.linspace(0,255,4).astype(np.uint8)
+multi_resultado=multi_niveles[multi_clases]
+
+print('Umbrales:',multi_umbrales)
+
+plt.figure(figsize=(8, 6))
+# Usamos 'jet' o 'viridis' para que cada clase tenga un color muy distinto
+plt.imshow(multi_resultado, cmap='jet') 
+plt.title('Segmentación Multi-Otsu (4 Clases)')
+plt.colorbar(label='Nivel de gris asignado')
+plt.axis('off')
+plt.show()

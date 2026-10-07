@@ -1,0 +1,34 @@
+import cv2 as cv
+import numpy as np
+
+rect=cv.getStructuringElement(cv.MORPH_RECT,(5,5))
+
+cross=cv.getStructuringElement(cv.MORPH_CROSS,(5,5))
+
+eclipse=cv.getStructuringElement(cv.MORPH_ELLIPSE,(5,5))
+
+#print(rect)
+#print(cross)
+#print(eclipse)
+
+muestras = [
+    ("IMG_20260901_161412945.jpg", "Hoja normal grande 1"), #1
+    ("IMG_20260901_161426657.jpg", "Hoja normal grande 2"), #2
+
+    ("IMG_20260901_161504068.jpg", "Hoja mojada grande 1"), #3
+    ("IMG_20260901_161539928.jpg", "Hoja mojada grande 2"), #4
+
+    ("IMG_20260901_161616155.jpg", "Hoja seca grande 1"),   #5
+    ("IMG_20260901_161635904.jpg", "Hoja seca grande 2"),   #6
+
+    ("IMG_20260901_161710879.jpg", "Hoja normal pequeña 1"),#7
+    ("IMG_20260901_161741846.jpg", "Hoja normal pequeña 2"),#8
+
+    ("IMG_20260901_161811458.jpg", "Hoja mojada pequeña 1"),#9
+    ("IMG_20260901_161851864.jpg", "Hoja mojada pequeña 2"),#10 
+
+    ("IMG_20260901_161918685.jpg", "Hoja seca pequeña 1"),  #11
+    ("IMG_20260901_161940183.jpg", "Hoja seca pequeña 2")   #12
+]
+
+print(f'Nombre: {muestras[0][1]}')

@@ -1,0 +1,62 @@
+import cv2 as cv
+import numpy as np
+import matplotlib.pyplot as plt
+
+import glob #Añadido para poder leer todas las imágenes de la carpeta
+
+imagenes= [
+    ("IMG_20260901_161412945.jpg"),
+    ("IMG_20260901_161426657.jpg"),
+
+    ("IMG_20260901_161504068.jpg"),
+    ("IMG_20260901_161539928.jpg"),
+
+    ("IMG_20260901_161616155.jpg"),
+    ("IMG_20260901_161635904.jpg"),
+
+    ("IMG_20260901_161710879.jpg"),
+    ("IMG_20260901_161741846.jpg"),
+
+    ("IMG_20260901_161811458.jpg"),
+    ("IMG_20260901_161851864.jpg"),
+
+    ("IMG_20260901_161918685.jpg"),
+    ("IMG_20260901_161940183.jpg")
+]
+
+imagenes_RGB = []
+imagenes_BGR = []
+
+for i in imagenes:
+    imagen = cv.imread(i)
+
+    if imagen is None:
+        print(f'Error al cargar la imagen {i}')
+
+    else:
+        imagen_RGB = cv.cvtColor(imagen, cv.COLOR_BGR2RGB)
+
+        #roi_RGB = imagen_RGB[0:2296, 646:2820] #Recorte de la imagen para eliminar el marco negro
+        #roi_BGR = imagen[0:2296, 646:2820]
+        
+        roi_RGB= imagen_RGB[0:1873, 646:2820]
+        roi_BGR= imagen[0:2296, 646:2820]
+
+        imagenes_RGB.append(roi_RGB)
+        imagenes_BGR.append(roi_BGR)
+
+        plt.imshow(imagen)
+        plt.axis('off')
+        plt.show()
+
+        k = np.arange(256)
+
+        plt.figure(figsize=(9, 4))
+        plt.plot(k, hist)
+        plt.xlim(0, 255)
+        plt.xlabel("Intensidad k")
+        plt.ylabel("Cantidad de píxeles h[k]")
+        plt.title("Histograma de la imagen")
+        plt.grid(alpha=0.2)
+        plt.show()
+

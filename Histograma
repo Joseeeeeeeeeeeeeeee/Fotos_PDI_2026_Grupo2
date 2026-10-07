@@ -1,0 +1,37 @@
+import cv2 as cv
+import numpy as np
+import matplotlib.pyplot as plt
+
+imagen=cv.imread('IMG_20260901_161409949.jpg',cv.IMREAD_GRAYSCALE)
+
+if imagen is None:
+    print('No hay imagen')
+
+print("shape:", imagen.shape)
+print("dtype:", imagen.dtype)
+print("mínimo:", imagen.min())
+print("máximo:", imagen.max())
+
+hist = cv.calcHist(
+    [imagen],        # imagen
+    [0],          # canal 0
+    None,         # sin máscara
+    [256],        # 256 niveles
+    [0, 256]      # rango [0,256)
+).ravel()
+
+print(hist.shape)      # (256,)
+print(hist[0])         # cantidad de píxeles con intensidad 0
+print(hist[128])       # cantidad con intensidad 128
+print(hist[255])       # cantidad con intensidad 255
+
+k = np.arange(256)
+
+plt.figure(figsize=(9, 4))
+plt.plot(k, hist)
+plt.xlim(0, 255)
+plt.xlabel("Intensidad k")
+plt.ylabel("Cantidad de píxeles h[k]")
+plt.title("Histograma de la imagen")
+plt.grid(alpha=0.2)
+plt.show()
